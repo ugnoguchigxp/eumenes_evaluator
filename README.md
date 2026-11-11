@@ -30,12 +30,14 @@ bun run quick examples/code-request.json --endpoint "$EVALUATOR_ENDPOINT" --mode
 
 実行先には指定した資料と有効な確定条件が送信されます。Eumenes へ組み込む際は、パッケージの `evaluate(request, { model, signal })` に本体の推論接続を渡せます。
 
+`bun run pack:check` は一時ディレクトリでパッケージを作成し、新規の Bun プロジェクトにインストールして評価を実行します。Codex SDK を使う比較コマンドは、開発用の依存関係を入れたリポジトリで実行してください。
+
 ## 入力の準備
 
-- コードの `target.changes` に変更箇所の前後を分けて入れます。テキストは LF で、位置は 1 始まりです。主根拠にできるのはこの一覧の変更範囲です。追加・削除では片側を `null` にします。周辺コードは `evidence` に入れ、`side` に対応するコミットを `version` に指定します。
-- Workflow は `target.document` に固定した JSON 定義を入れます。主根拠の資料 ID は `workflow` で、JSON Pointer を使って位置を示します。省略された項目は既存の親を指せます。
+- コードの `target.changes` に変更箇所の前後を分けて入れます。テキストは LF で、位置は 1 から 10,000,000 までです。主根拠にできるのはこの一覧の変更範囲です。追加・削除では片側を `null` にします。周辺コードは `evidence` に入れ、`side` に対応するコミットを `version` に指定します。
+- Workflow は `target.document` に固定した JSON 定義を入れます。定義と JSON 資料の入れ子は深さ128までです。主根拠の資料 ID は `workflow` で、JSON Pointer を使って位置を示します。省略された項目は既存の親を指せます。
 - `targetDigests` に digest を除いた対象を渡すと、対象の digest と、コードの場合は変更一覧の digest が得られます。コード資料は固定したコミット対から用意し、Workflow の周辺資料は対象と同じ `version` を使います。
-- `scope` に確認が必要な資料 ID を列挙します。コードの変更箇所には `<change-id>:base` と `<change-id>:head` が割り当てられます。資料の不足・切り詰め・モデルの未回答は `unverified` になります。
+- `scope` に確認が必要な資料 ID を列挙します。コードの変更箇所の ID は `changeEvidenceId(changeId, side)` で取得できます。通常は `<change-id>:base` または `<change-id>:head` で、長い ID にはハッシュを使います。確認対象は範囲指定後も最大1024件です。資料の不足・切り詰め・モデルの未回答は `unverified` になります。
 - 確定条件は有効な出所と対象の ID・版・digest を持つものを渡します。訂正済み・撤回済みの条件は入力の状態で示します。条件が存在しない場合は `none`、確認が必要な条件を取得できない場合は `unavailable` を指定します。結果の `conditionChecks` で、各条件の適合・違反・未確認と根拠を確認できます。
 
 ## 比較試験
@@ -156,7 +158,7 @@ bun run quick "$request" --scope "$scope" --expected-scope-digest "$digest" \
 
 `steering.outcome` の `committed` はモデルの応答を確認できたことを示します。結果そのものの採用は根拠検証と `status` で判断します。入力予算を超えた補足は `released` として外し、モデルに送った後で応答が確認できない場合は `unknown` になります。
 
-Inboxは [eumenes-steer](https://github.com/ugnoguchigxp/eumenes_steer/tree/1250b2071392bf54204fda871cd371830713ce45) 0.1.0を使用し、同梱TGZのSHA-256先頭12桁は `1ca04b8bee9b` です。
+Eumenes などに組み込むときは、導入先で開いた Steer のターゲットを `evaluate(request, { model, selection, depth: "standard", steering: target })` に渡します。試験用 CLI の `--steer` は、起動したプロジェクトにインストール済みの `eumenes-steer` を読み込みます。リポジトリのテストでは、バージョン 0.1.0 の固定 tarball を開発用依存として使います。 [eumenes-steer](https://github.com/ugnoguchigxp/eumenes_steer/tree/1250b2071392bf54204fda871cd371830713ce45)
 
 ## 調整と最終評価
 
@@ -172,7 +174,7 @@ Inboxは [eumenes-steer](https://github.com/ugnoguchigxp/eumenes_steer/tree/1250
 | --- | --- | --- |
 | `invalid_request`, `rubric_target_mismatch`, `target_digest_mismatch`, `invalid_diff`, `duplicate_evidence_or_scope`, `duplicate_condition`, `empty_diff_excerpt`, `evidence_version_mismatch` | `failed` | 契約、評価基準、固定版、資料と ID を照合する |
 | `invalid_review_depth`, `scope_required_for_depth`, `scope_required_for_preview_digest`, `steering_requires_standard` | `failed` | 評価深度と必要な範囲指定を確認する |
-| `invalid_scope_selection`, `scope_target_mismatch`, `scope_selector_target_mismatch`, `scope_selector_no_match`, `scope_evidence_not_allowed`, `scope_evidence_id_conflict`, `scope_preview_mismatch` | `failed` | 対象版と選択範囲、許可資料を照合してプレビューを取り直す |
+| `invalid_scope_selection`, `scope_target_mismatch`, `scope_selector_target_mismatch`, `scope_selector_no_match`, `scope_evidence_not_allowed`, `scope_evidence_id_conflict`, `scope_size_limit`, `scope_preview_mismatch` | `failed` | 対象版と選択範囲、許可資料を照合してプレビューを取り直す |
 | `target_scope_missing`, `scope_unverified`, `investigation_evidence_unavailable`, `investigation_questions_unverified` | `incomplete` | 未確認の範囲・問いと、判断に必要な資料を確認する |
 | `condition_target_mismatch`, `condition_sources_inactive`, `conditions_unavailable`, `required_conditions_unavailable`, `conditions_unverified` | `incomplete` | 確定条件の適用先、出所、未確認理由を確認する |
 | `request_size_limit`, `prompt_size_limit` | `incomplete` | 評価対象と資料の量を調整する |

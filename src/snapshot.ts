@@ -1,11 +1,12 @@
 import { createHash } from "node:crypto";
-import type {
-	EvaluationRequest,
-	ExcludedCondition,
-	Evidence,
-	Location,
-	ReviewEvidence,
-	Target,
+import {
+	MAX_ID_LENGTH,
+	type EvaluationRequest,
+	type ExcludedCondition,
+	type Evidence,
+	type Location,
+	type ReviewEvidence,
+	type Target,
 } from "./contracts";
 
 export function fingerprint(value: unknown): string {
@@ -64,7 +65,7 @@ export function targetEvidence(target: Target): Evidence[] {
 		const sides: Evidence[] = [];
 		if (change.before)
 			sides.push({
-				id: `${change.id}:base`,
+				id: changeEvidenceId(change.id, "base"),
 				kind: "lines",
 				path: change.previousPath ?? change.path,
 				side: "base",
@@ -74,7 +75,7 @@ export function targetEvidence(target: Target): Evidence[] {
 			});
 		if (change.after)
 			sides.push({
-				id: `${change.id}:head`,
+				id: changeEvidenceId(change.id, "head"),
 				kind: "lines",
 				path: change.path,
 				side: "head",
@@ -84,6 +85,16 @@ export function targetEvidence(target: Target): Evidence[] {
 			});
 		return sides;
 	});
+}
+
+export function changeEvidenceId(
+	changeId: string,
+	side: Extract<Evidence, { kind: "lines" }>["side"],
+): string {
+	const suffix = ":" + side;
+	return changeId.length + suffix.length <= MAX_ID_LENGTH
+		? changeId + suffix
+		: "change:" + fingerprint(changeId) + suffix;
 }
 
 export function activeConditions(request: EvaluationRequest) {

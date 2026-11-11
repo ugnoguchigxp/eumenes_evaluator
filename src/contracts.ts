@@ -4,11 +4,15 @@ import type { ResolvedScope } from "./scope";
 
 export const MAX_INPUT_BYTES = 2 * 1024 * 1024;
 export const MAX_RESPONSE_BYTES = 256 * 1024;
+export const MAX_SCOPE_CHECKS = 1024;
+const MAX_JSON_DEPTH = 128;
+export const MAX_ID_LENGTH = 256;
+const MAX_LINE_NUMBER = 10_000_000;
 
-export const id = z.string().min(1).max(256);
+export const id = z.string().min(1).max(MAX_ID_LENGTH);
 export const digest = z.string().regex(/^[a-f0-9]{64}$/);
 const commit = z.string().regex(/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/);
-export const line = z.number().int().min(1).max(10_000_000);
+export const line = z.number().int().min(1).max(MAX_LINE_NUMBER);
 export const side = z.enum(["base", "head"]);
 export const path = z
 	.string()
@@ -22,13 +26,20 @@ export const path = z
 				.split("/")
 				.every((segment) => segment && segment !== "." && segment !== ".."),
 	);
-const lines = z.strictObject({
-	startLine: line,
-	text: z
-		.string()
-		.max(MAX_INPUT_BYTES)
-		.refine((value) => !value.includes("\r")),
-});
+const lines = z
+	.strictObject({
+		startLine: line,
+		text: z
+			.string()
+			.max(MAX_INPUT_BYTES)
+			.refine((value) => !value.includes("\r")),
+	})
+	.refine(
+		({ startLine, text }) =>
+			startLine + text.split("\n").length - (text.endsWith("\n") ? 2 : 1) <=
+			MAX_LINE_NUMBER,
+		{ path: ["text"], message: "Excerpt exceeds the maximum line number" },
+	);
 const targetRef = z.strictObject({ id, version: id, digest });
 const change = z
 	.strictObject({
@@ -47,9 +58,53 @@ const codeTarget = targetRef.extend({
 	diffDigest: digest,
 	changes: z.array(change).max(1024),
 });
+type JsonValue = z.core.util.JSONType;
+
+function isJsonValue(
+	value: unknown,
+	budget: { nodes: number },
+	depth = 0,
+): value is JsonValue {
+	// Every JSON value requires at least one byte in the serialized request.
+	if (depth > MAX_JSON_DEPTH || --budget.nodes < 0) return false;
+	if (value === null || typeof value === "string" || typeof value === "boolean")
+		return true;
+	if (typeof value === "number") return Number.isFinite(value);
+	if (typeof value !== "object") return false;
+	if (Array.isArray(value)) {
+		for (let index = 0; index < value.length; index++) {
+			if (
+				!Object.hasOwn(value, index) ||
+				!isJsonValue(value[index], budget, depth + 1)
+			)
+				return false;
+		}
+		return true;
+	}
+	const prototype = Object.getPrototypeOf(value);
+	return (
+		(prototype === Object.prototype || prototype === null) &&
+		Object.values(value).every((child) => isJsonValue(child, budget, depth + 1))
+	);
+}
+
+// Preserve JSON keys such as "__proto__" and detach the snapshot from the caller.
+const jsonDocument = z
+	.unknown()
+	.refine(
+		(value): value is JsonValue =>
+			isJsonValue(value, { nodes: MAX_INPUT_BYTES }),
+		{ abort: true },
+	)
+	.overwrite((value) => structuredClone(value));
 const workflowTarget = targetRef.extend({
 	kind: z.literal("workflow"),
-	document: z.record(z.string(), z.json()),
+	document: jsonDocument
+		.refine(
+			(value): value is Record<string, JsonValue> =>
+				value !== null && typeof value === "object" && !Array.isArray(value),
+		)
+		.meta({ type: "object" }),
 });
 export const targetSchema = z.discriminatedUnion("kind", [
 	codeTarget,
@@ -60,10 +115,12 @@ const documentEvidence = z.strictObject({
 	kind: z.literal("json"),
 	id,
 	version: id,
-	document: z.json(),
+	document: jsonDocument.meta({
+		type: ["null", "boolean", "number", "string", "array", "object"],
+	}),
 	clipped: z.boolean(),
 });
-const codeEvidence = lines.extend({
+const codeEvidence = lines.safeExtend({
 	kind: z.literal("lines"),
 	id,
 	version: id,
@@ -103,7 +160,7 @@ export const requestSchema = z.strictObject({
 	evaluationId: id,
 	rubric: rubricSchema,
 	target: targetSchema,
-	scope: z.array(id).min(1).max(1024),
+	scope: z.array(id).min(1).max(MAX_SCOPE_CHECKS),
 	evidence: z.array(evidenceSchema).max(1024),
 	originalRequest: z.string().min(1).max(24_000).optional(),
 	conditions: z.discriminatedUnion("state", [
@@ -155,7 +212,7 @@ const conditionCheck = z.strictObject({
 });
 export const modelOutputSchema = z.strictObject({
 	findings: z.array(finding).max(100),
-	scopeChecks: z.array(scopeCheck).max(1024),
+	scopeChecks: z.array(scopeCheck).max(MAX_SCOPE_CHECKS),
 	conditionChecks: z.array(conditionCheck).max(1000),
 });
 
@@ -223,6 +280,7 @@ export const issueCodes = [
 	"scope_required_for_preview_digest",
 	"scope_selector_no_match",
 	"scope_selector_target_mismatch",
+	"scope_size_limit",
 	"scope_target_mismatch",
 	"scope_unverified",
 	"steering_requires_standard",

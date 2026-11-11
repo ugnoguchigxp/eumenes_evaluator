@@ -1,4 +1,3 @@
-import type { SteeringTarget } from "eumenes-steer";
 import {
 	MAX_INPUT_BYTES,
 	MAX_RESPONSE_BYTES,
@@ -36,7 +35,7 @@ import {
 	type ModelDelivery,
 } from "./model-stages";
 import { validateReferences } from "./output";
-import { prepareSteeredVerification } from "./steering";
+import { prepareSteeredVerification, type SteeringTarget } from "./steering";
 import {
 	reviewContext,
 	rubricInstructions,

@@ -53,7 +53,7 @@ export async function runSuite(
 		throw new Error("codex-sdk 構成には SDK の接続設定が必要です");
 	const inputs = new Map(cases.map((item) => [item.id, item]));
 	await mkdir(dirname(output), { recursive: true });
-	await mkdir(output);
+	await mkdir(output, { mode: 0o700 });
 	const metadata = {
 		formatVersion: 2,
 		runId: crypto.randomUUID(),

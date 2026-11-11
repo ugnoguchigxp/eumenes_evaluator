@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, stat, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -50,6 +50,57 @@ test("配布スイートの全入力・採点根拠を検証し、同一差分�
 		"D",
 		"A",
 	]);
+});
+
+test("スイート検査は選択した条件の欠落を扱い、最終判定に届かない入力を拒否する", async () => {
+	const [fixture] = await loadSuite(path("../examples/depth-suite.json"));
+	const material = fixture?.input.evidence[0];
+	if (!fixture?.selection || material?.kind !== "lines")
+		throw new Error("missing fixture");
+	const temporary = await mkdtemp(join(tmpdir(), "eumenes-suite-preflight-"));
+	try {
+		const suiteFile = join(temporary, "suite.json");
+		const request = join(temporary, "request.json");
+		const input = fixture.input;
+		material.text += "// " + "a".repeat(8000) + "\n";
+		const selection = { ...fixture.selection, conditionIds: ["missing"] };
+		const expected = {
+			...fixture.expected,
+			status: "incomplete",
+			conditions: { missing: "unverified" },
+		};
+		await Promise.all([
+			Bun.write(request, JSON.stringify(input)),
+			Bun.write(join(temporary, "scope.json"), JSON.stringify(selection)),
+			Bun.write(
+				suiteFile,
+				JSON.stringify({
+					version: 1,
+					cases: [
+						{
+							id: fixture.id,
+							group: fixture.group,
+							notes: fixture.notes,
+							request: "request.json",
+							scope: "scope.json",
+							depthArms: ["standard"],
+							expected,
+							expectedWithoutAdditional: {
+								status: expected.status,
+								conditions: expected.conditions,
+							},
+						},
+					],
+				}),
+			),
+		]);
+		expect(await loadSuite(suiteFile)).toHaveLength(1);
+		input.limits.maxInputBytes = 5000;
+		await Bun.write(request, JSON.stringify(input));
+		await expect(loadSuite(suiteFile)).rejects.toThrow("prompt_size_limit");
+	} finally {
+		await rm(temporary, { recursive: true, force: true });
+	}
 });
 
 test("複数の補足資料を使う比較は、同じ範囲と依頼で二構成を実行する", async () => {
@@ -360,6 +411,8 @@ test("検証結果を保存し、構成を伏せた指摘から検出率・誤�
 			mismatched: 0,
 			interrupted: false,
 		});
+		if (process.platform !== "win32")
+			expect((await stat(output)).mode & 0o077).toBe(0);
 		const journal = await Bun.file(join(output, "trials.jsonl")).text();
 		const trials = journal
 			.trim()

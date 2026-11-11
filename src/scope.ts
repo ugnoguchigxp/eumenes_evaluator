@@ -4,6 +4,7 @@ import {
 	digest,
 	id,
 	line,
+	MAX_SCOPE_CHECKS,
 	path,
 	side,
 	type EvaluationRequest,
@@ -90,6 +91,7 @@ export function evidenceCoordinates(item: ReviewEvidence) {
 
 function intersection(
 	item: LineEvidence,
+	end: number,
 	selector: Selector,
 ): Range | undefined {
 	if (selector.kind === "pointer") return;
@@ -99,7 +101,6 @@ function intersection(
 			: item.path !== selector.path
 	)
 		return;
-	const end = item.startLine + excerptLines(item.text).length - 1;
 	if (selector.kind !== "lines")
 		return { startLine: item.startLine, endLine: end };
 	if (selector.side !== item.side) return;
@@ -111,9 +112,11 @@ function intersection(
 function projectCode(primary: LineEvidence[], include: Selector[]) {
 	const matched = new Set<number>();
 	const projected = primary.flatMap((item) => {
+		const lines = excerptLines(item.text);
+		const end = item.startLine + lines.length - 1;
 		const ranges = include
 			.flatMap((selector, index) => {
-				const range = intersection(item, selector);
+				const range = intersection(item, end, selector);
 				if (!range) return [];
 				matched.add(index);
 				return [range];
@@ -126,13 +129,8 @@ function projectCode(primary: LineEvidence[], include: Selector[]) {
 				previous.endLine = Math.max(previous.endLine, range.endLine);
 			else merged.push(range);
 		}
-		const lines = excerptLines(item.text);
 		return merged.map(({ startLine, endLine }) => {
-			if (
-				startLine === item.startLine &&
-				endLine === item.startLine + lines.length - 1
-			)
-				return item;
+			if (startLine === item.startLine && endLine === end) return item;
 			const from = startLine - item.startLine;
 			const to = endLine - item.startLine + 1;
 			return {
@@ -261,6 +259,11 @@ export function resolveScope(request: EvaluationRequest, input: unknown) {
 			...initial.filter((key) => !present.has(key)),
 		]),
 	];
+	if (scopeIds.length > MAX_SCOPE_CHECKS)
+		throw new ScopeError(
+			"scope_size_limit",
+			`確認対象 ${scopeIds.length} 件は上限 ${MAX_SCOPE_CHECKS} 件を超えています`,
+		);
 	const eligible = new Set(
 		activeConditions(request).entries.map((item) => item.id),
 	);

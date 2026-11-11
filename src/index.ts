@@ -8,8 +8,9 @@ export {
 	comparisonSelection,
 	type ComparisonArm,
 } from "./rubrics";
-export { fingerprint, targetDigests } from "./snapshot";
+export { changeEvidenceId, fingerprint, targetDigests } from "./snapshot";
 export { issueCodes, requestSchema, modelOutputSchema } from "./contracts";
+export type { SteeringTarget } from "./steering";
 export type {
 	EvaluationModel,
 	EvaluationRequest,

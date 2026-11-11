@@ -17,7 +17,7 @@ export async function readText(
 		chunks.push(decoder.decode());
 		return chunks.join("");
 	} catch (error) {
-		await reader.cancel().catch(() => {});
+		void reader.cancel().catch(() => {});
 		throw error;
 	} finally {
 		reader.releaseLock();

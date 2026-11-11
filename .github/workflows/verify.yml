@@ -20,3 +20,4 @@ jobs:
       - run: bun run format:check
       - run: bun run verify
       - run: bun run bench:check
+      - run: bun run pack:check

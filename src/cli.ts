@@ -158,7 +158,7 @@ async function main() {
 	const preview = values.steer ? previewScope(input, selection) : undefined;
 	const steering =
 		preview && preview.digest === expectedScopeDigest
-			? openSteeringConsole(preview)
+			? await openSteeringConsole(preview)
 			: undefined;
 	const cancel = () => controller.abort();
 	process.on("SIGINT", cancel);

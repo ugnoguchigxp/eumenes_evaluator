@@ -143,6 +143,71 @@ test("範囲指定で行を切り出し、許可外の本文を推論に渡さ�
 	).toBe("unverified");
 });
 
+test("確認項目の上限を超える選択はプレビューと実行の両方で拒否する", async () => {
+	const { request, selection } = await code();
+	if (request.target.kind !== "code") throw new Error("code required");
+	const change = request.target.changes[0]!;
+	request.target.changes = Array.from({ length: 512 }, (_, index) => ({
+		...change,
+		id: `edit-${index}`,
+		previousPath: undefined,
+	}));
+	Object.assign(request.target, targetDigests(request.target));
+	const scope = {
+		...selection,
+		targetDigest: request.target.digest,
+		include: [{ kind: "file", path: change.path }],
+	};
+	expect(
+		previewScope(request, { ...scope, evidence: {} }).selected,
+	).toHaveLength(1024);
+	expect(() => previewScope(request, scope)).toThrow("上限 1024 件");
+	const result = await evaluate(request, {
+		selection: scope,
+		model: {
+			async complete() {
+				throw new Error("must not call");
+			},
+		},
+	});
+	expect(result.status).toBe("failed");
+	expect(result.issues[0]?.code).toBe("scope_size_limit");
+});
+
+test("任意の JSON キーを固定スナップショットと JSON Pointer に保持する", async () => {
+	const request = requestSchema.parse(
+		await Bun.file(
+			new URL("../examples/cases/workflow-team.json", import.meta.url),
+		).json(),
+	);
+	if (request.target.kind !== "workflow") throw new Error("workflow required");
+	request.target.document = JSON.parse(
+		'{"settings":{"__proto__":{"name":"team"}}}',
+	);
+	Object.assign(request.target, targetDigests(request.target));
+	const selection: ScopeSelection = {
+		version: 1,
+		targetId: request.target.id,
+		targetVersion: request.target.version,
+		targetDigest: request.target.digest,
+		include: [{ kind: "pointer", pointer: "/settings/__proto__" }],
+	};
+	const preview = previewScope(request, selection);
+	let sentDocument: unknown;
+	const result = await evaluate(request, {
+		selection,
+		expectedScopeDigest: preview.digest,
+		model: {
+			async complete(input) {
+				sentDocument = JSON.parse(input.prompt).evidence[0].document;
+				return response(checked(input));
+			},
+		},
+	});
+	expect(result.status).toBe("completed");
+	expect(sentDocument).toEqual({ name: "team" });
+});
+
 test("ディレクトリ境界、改名前後のパス、空振りと版違いを照合する", async () => {
 	const { request, selection } = await code();
 	const scope = {

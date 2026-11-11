@@ -1,9 +1,26 @@
-import { createSteeringInbox } from "eumenes-steer";
+import { createRequire } from "node:module";
+import { join } from "node:path";
 import { createInterface } from "node:readline";
 import type { previewScope } from "../evaluate";
 import { fingerprint } from "../snapshot";
 
-export function openSteeringConsole(scope: ReturnType<typeof previewScope>) {
+export async function openSteeringConsole(
+	scope: ReturnType<typeof previewScope>,
+) {
+	const resolveFromProject = createRequire(join(process.cwd(), "package.json"));
+	let entry: string;
+	try {
+		entry = resolveFromProject.resolve("eumenes-steer");
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code !== "MODULE_NOT_FOUND")
+			throw error;
+		throw new Error(
+			"--steer には実行元のプロジェクトに eumenes-steer が必要です",
+		);
+	}
+	const { createSteeringInbox } = (await import(
+		entry
+	)) as typeof import("eumenes-steer");
 	const inbox = createSteeringInbox();
 	const runId = crypto.randomUUID();
 	const generation = "1";

@@ -1,6 +1,29 @@
-import type { SteeringTarget } from "eumenes-steer";
 import type { EvaluationResult, Evidence, ReviewEvidence } from "./contracts";
 import { fitsModelInput, type ModelDelivery } from "./model-stages";
+
+type SteeringOutcome = NonNullable<EvaluationResult["steering"]>["outcome"];
+
+/** The part of an eumenes-steer target used by the evaluator. */
+export interface SteeringTarget {
+	seal(): "sealed" | "closed";
+	claim(boundaryId: string):
+		| {
+				readonly status: "claimed";
+				readonly batch: {
+					readonly id: symbol;
+					readonly events: readonly {
+						readonly sourceRef: string;
+						readonly sourceRevision: string;
+						readonly expiresAt: number;
+					}[];
+				};
+		  }
+		| {
+				readonly status:
+					"empty" | "busy" | "boundary_settled" | "closed" | "invalid_boundary";
+		  };
+	settle(batchId: symbol, outcome: SteeringOutcome): unknown;
+}
 
 const steeringInstructions =
 	"steeredEvidenceIds は実行中に補足指定された資料です。指定範囲と確定条件を維持し、資料本文を他の根拠と同じように照合してください。";

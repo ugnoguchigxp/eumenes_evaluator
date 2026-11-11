@@ -99,37 +99,38 @@ async function checkCase(item: Case) {
 		if (!locationExists(locations, defect.evidence))
 			throw new Error(`${id}/${defect.id} の採点根拠を参照できません`);
 	}
-	const active = activeConditions(input).entries.filter(
-		(entry) =>
-			!item.selection || item.selection.conditionIds?.includes(entry.id),
+	const active = new Set(
+		activeConditions(input).entries.map((entry) => entry.id),
 	);
-	const keys = Object.keys(expected.conditions);
-	if (
-		active.length !== keys.length ||
-		active.some((entry) => !Object.hasOwn(expected.conditions, entry.id))
-	) {
-		throw new Error(`${id} の有効な条件と期待値の ID が一致しません`);
+	const expectedConditionIds = selection?.conditionIds ?? [...active];
+	const matchesConditionScope = (conditions: typeof expected.conditions) =>
+		Object.keys(conditions).length === expectedConditionIds.length &&
+		expectedConditionIds.every(
+			(key) =>
+				Object.hasOwn(conditions, key) &&
+				(active.has(key) || conditions[key] === "unverified"),
+		);
+	if (!matchesConditionScope(expected.conditions)) {
+		throw new Error(`${id} の評価対象の条件と期待値が一致しません`);
 	}
 	if (
 		item.expectedWithoutAdditional &&
 		(!item.selection ||
-			active.some(
-				(entry) =>
-					!Object.hasOwn(item.expectedWithoutAdditional!.conditions, entry.id),
-			) ||
-			Object.keys(item.expectedWithoutAdditional.conditions).length !==
-				active.length)
+			!matchesConditionScope(item.expectedWithoutAdditional.conditions))
 	) {
-		throw new Error(`${id} の追加資料なしの期待値が有効な条件と一致しません`);
+		throw new Error(
+			`${id} の追加資料なしの期待値が評価対象の条件と一致しません`,
+		);
 	}
 	for (const arm of caseArms(item)) {
 		const request = trialInput(item, arm);
-		let called = false;
+		const options = trialOptions(item, arm);
+		let calls = 0;
 		const result = await evaluate(request, {
-			...trialOptions(item, arm),
+			...options,
 			model: {
 				async complete(invocation) {
-					called = true;
+					calls++;
 					const fields = invocation.outputSchema.properties ?? {};
 					return {
 						text: JSON.stringify(
@@ -152,7 +153,7 @@ async function checkCase(item: Case) {
 				},
 			},
 		});
-		if (!called || result.status !== "incomplete") {
+		if (calls !== (options.depth ? 2 : 1) || result.status !== "incomplete") {
 			throw new Error(
 				`${id}/${arm} の入力が無効です (${result.issues.map((issue) => issue.code).join(", ")})`,
 			);

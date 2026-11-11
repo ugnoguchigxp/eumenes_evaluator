@@ -1,6 +1,7 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import { fileURLToPath } from "node:url";
 import {
+	changeEvidenceId,
 	comparisonRequest,
 	evaluate,
 	targetDigests,
@@ -11,6 +12,7 @@ import {
 	type ModelRequest,
 } from "../src";
 import { httpModel } from "../src/http-model";
+import { readText } from "../src/read-text";
 
 const base = "a".repeat(40);
 const head = "b".repeat(40);
@@ -88,6 +90,81 @@ const noCall = () => {
 		},
 	};
 };
+
+test("循環する JSON 資料をモデルを呼ばずに拒否する", async () => {
+	const request = codeRequest();
+	const document: Record<string, unknown> = {};
+	document.child = document;
+	const input = {
+		...request,
+		evidence: [
+			{
+				kind: "json",
+				id: "supplement",
+				version: request.target.version,
+				clipped: false,
+				document,
+			},
+		],
+	};
+	const { model, assert } = noCall();
+	const result = await evaluate(input, { model });
+	expect(result.status).toBe("failed");
+	expect(result.issues[0]?.code).toBe("invalid_request");
+	assert();
+});
+
+test("長い変更 ID も位置を引用でき、既存の短い ID は維持する", async () => {
+	const request = codeRequest();
+	if (request.target.kind !== "code") throw new Error("code required");
+	const change = request.target.changes[0]!;
+	change.id = "x".repeat(256);
+	Object.assign(request.target, targetDigests(request.target));
+	expect(changeEvidenceId("change", "head")).toBe("change:head");
+	const evidenceId = changeEvidenceId(change.id, "head");
+	request.scope = [evidenceId];
+	const result = await evaluate(request, {
+		model: fixed(checked(evidenceId), ({ prompt }) => {
+			expect(JSON.parse(prompt).evidence[1].id).toBe(evidenceId);
+		}),
+	});
+	expect(result.status).toBe("completed");
+});
+
+test("返却できる最大行番号を超える抜粋を推論前に拒否する", async () => {
+	const request = codeRequest();
+	if (request.target.kind !== "code") throw new Error("code required");
+	request.target.changes[0]!.after = {
+		startLine: 10_000_000,
+		text: "last\nextra\n",
+	};
+	Object.assign(request.target, targetDigests(request.target));
+	const { model, assert } = noCall();
+	const result = await evaluate(request, { model });
+	expect(result.issues[0]?.code).toBe("invalid_request");
+	assert();
+});
+
+test("サイズ上限のエラーは入力ストリームのキャンセル完了を待たない", async () => {
+	const cleanup = Promise.withResolvers<void>();
+	let cancelled = false;
+	const stream = new ReadableStream<Uint8Array>({
+		start(controller) {
+			controller.enqueue(new Uint8Array(2));
+		},
+		cancel() {
+			cancelled = true;
+			return cleanup.promise;
+		},
+	});
+	try {
+		await expect(readText(stream, 1)).rejects.toThrow("サイズ上限");
+		expect(cancelled).toBe(true);
+		expect(stream.locked).toBe(false);
+	} finally {
+		cleanup.resolve();
+	}
+}, 1000);
 
 function condition(
 	request: EvaluationRequest,
