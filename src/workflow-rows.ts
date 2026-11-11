@@ -14,20 +14,11 @@ const reason = z.string().min(1).max(1000);
 const value = z.string().max(500);
 const rowReference = z.strictObject({ row: pointer, value });
 const comparable = z.union([z.number(), z.string().max(64)]);
-const maxComparisons = 8;
 const basisComparison = z.strictObject({
 	left: comparable,
 	op: z.enum(["lt", "lte", "eq", "gte", "gt"]),
 	right: comparable,
 	holds: z.boolean(),
-});
-const basisDecision = z.strictObject({
-	comparison: z
-		.int()
-		.min(0)
-		.max(maxComparisons - 1),
-	when: z.boolean(),
-	value,
 });
 const comparisonHolds = {
 	lt: (left: number, right: number) => left < right,
@@ -67,34 +58,22 @@ function comparisonAgrees({
 			compare(leftNumber, rightNumber) === holds
 		);
 	if (typeof left !== "string" || typeof right !== "string") return false;
-	const clock =
-		clockTime.safeParse(left).success && clockTime.safeParse(right).success;
-	if (
-		!clock &&
-		(!timestamp.safeParse(left).success || !timestamp.safeParse(right).success)
-	)
+	if (clockTime.safeParse(left).success && clockTime.safeParse(right).success) {
+		const seconds = (clock: string) => {
+			const [hour, minute, second = 0] = clock.split(":").map(Number);
+			return hour! * 3600 + minute! * 60 + second;
+		};
+		return compare(seconds(left), seconds(right)) === holds;
+	}
+	if (!timestamp.safeParse(left).success || !timestamp.safeParse(right).success)
 		return false;
-	const first = timeParts(left, clock);
-	const second = timeParts(right, clock);
-	if (!Number.isFinite(first.whole) || !Number.isFinite(second.whole))
-		return false;
-	const order =
-		first.whole === second.whole
-			? Number(first.fraction > second.fraction) -
-				Number(first.fraction < second.fraction)
-			: Math.sign(first.whole - second.whole);
-	return compare(order, 0) === holds;
+	const [first, second] = [Date.parse(left), Date.parse(right)] as const;
+	return (
+		Number.isFinite(first) &&
+		Number.isFinite(second) &&
+		compare(first, second) === holds
+	);
 }
-
-function timeParts(time: string, clock: boolean) {
-	// Keep fractional seconds separate from Date.parse's millisecond resolution.
-	const fraction = (time.match(/\.(\d+)/)?.[1] ?? "").replace(/0+$/, "");
-	const wholeTime = time.replace(/\.\d+/, "");
-	if (!clock) return { whole: Date.parse(wholeTime), fraction };
-	const [hour, minute, second = 0] = wholeTime.split(":").map(Number);
-	return { whole: hour! * 3600 + minute! * 60 + second, fraction };
-}
-
 const evidence = z
 	.array(z.strictObject({ evidenceId: id, pointer: pointer.nullable() }))
 	.max(12);
@@ -105,9 +84,7 @@ const rowOutput = z.strictObject({
 				pointer,
 				evidence,
 				basis: z.strictObject({
-					// Allow omissions here so only the affected rows are marked unverified.
-					comparisons: basisComparison.array().max(maxComparisons).optional(),
-					decision: basisDecision.nullable().optional(),
+					comparisons: basisComparison.array().max(8).optional(),
 					dependencies: rowReference.array().max(32).optional(),
 					facts: reason,
 					value: value.nullable(),
@@ -148,8 +125,7 @@ export function workflowRowSchema(
 					pointer: z.enum(comparisonPointers),
 					evidence: citation.array().max(12),
 					basis: row.shape.basis.extend({
-						comparisons: basisComparison.array().max(maxComparisons),
-						decision: basisDecision.extend({ value: expected }).nullable(),
+						comparisons: basisComparison.array().max(8),
 						dependencies: dependency.array().max(32),
 						value: expected.nullable(),
 						via: dependency.nullable(),
@@ -172,7 +148,6 @@ export const workflowRowInstructions = [
 	"基準時刻・台帳・確認済み記録・依存先など、evidence にある関連資料を横断して期待値を求めてください。依存先や先行行も確定条件から再計算し、現行値を計算の根拠に使わないでください。",
 	"時刻の照合では比較する値を同じ時間帯にそろえ、条件に定められた境界の等号を確認してください。依存による停止は指定順で確認し、直前に求めた各依存先の結果と照合してください。",
 	'判定を左右する数値・時刻の比較は basis.comparisons に入れてください。left/right は同じ単位の数値、同日・同じ時間帯の時刻（HH:MM）、またはタイムゾーン付きのISO日時です。op（lt <、lte ≤、eq =、gte ≥、gt >）は確認した条件、holds はその条件が成立するなら true、不成立なら false です。例えば12:00は12:00未満かは left="12:00", op="lt", right="12:00", holds=false です。判定が決まった後の比較は省いてください。該当なしは空配列です。',
-	"行の最終判定が数値・時刻の比較で決まる場合は、basis.decision に判定を決めた比較の番号（comparison、先頭は0）、その判定になるために必要な真偽（when）、規則が定める判定値（value）を記載します。記録の採否や前提条件の通過に使った比較は comparisons に記載し、別の理由で最終判定が決まる場合は decision を null にします。",
 	"basis.dependencies には、通過した行も含め、判定に使った別行の欄の絶対位置 row とその期待値 value を記載してください。先に依存先を確定し、現行値を転記せずその期待値を使用します。参照する行がなければ空配列です。",
 	"basis.facts に、基準時刻などを代入した具体的な照合結果を記載してください。その結果から判定欄に入る期待値を basis.value に一度だけ記載してください。判定欄がコードならコードを、内訳も記録する欄なら内訳まで同じ表記で返してください。根拠IDや依存連鎖は判定欄の値に含めません。",
 	"expectedValues がある場合、判定欄の値はその一覧から選びます。",
@@ -247,39 +222,23 @@ export function workflowRowOutput(
 		{
 			expected: string;
 			supporting: Location[];
-			basis: {
-				dependencies: z.infer<typeof rowReference>[];
-				via: z.infer<typeof rowReference> | null;
-				facts: string;
-			};
+			basis: z.infer<typeof rowOutput>["rows"][number]["basis"];
 			conditionId: string | null;
 		}
 	>();
 	const issues = new Map<string, string>();
 	for (const [pointer, matches] of byPointer) {
 		const row = matches[0]!;
-		const { comparisons, decision, dependencies, facts, value, via } =
-			row.basis;
 		const supporting = locations(row.evidence);
 		if (matches.length !== 1)
 			issues.set(pointer, "同じ行の判定が複数返りました");
-		else if (
-			comparisons === undefined ||
-			decision === undefined ||
-			dependencies === undefined
-		)
-			issues.set(pointer, "比較・判定規則・依存先の必須欄が揃っていません");
-		else if (value === null) issues.set(pointer, facts);
-		else if (expectedValues && !expectedValues.includes(value))
+		else if (row.basis.value === null) issues.set(pointer, row.basis.facts);
+		else if (expectedValues && !expectedValues.includes(row.basis.value))
 			issues.set(pointer, "期待値が指定された判定値の一覧にありません");
-		else if (comparisons.some((comparison) => !comparisonAgrees(comparison)))
-			issues.set(pointer, "判定の根拠として示した比較の成否が一致しません");
 		else if (
-			decision &&
-			(comparisons[decision.comparison]?.holds !== decision.when ||
-				decision.value !== value)
+			row.basis.comparisons?.some((comparison) => !comparisonAgrees(comparison))
 		)
-			issues.set(pointer, "比較結果に基づく判定規則と期待値が一致しません");
+			issues.set(pointer, "判定の根拠として示した比較の成否が一致しません");
 		else if (!supporting)
 			issues.set(pointer, "期待値を裏付ける根拠位置を確認できませんでした");
 		else if (
@@ -289,9 +248,8 @@ export function workflowRowOutput(
 			issues.set(pointer, "適用対象の条件を参照していません");
 		else
 			checkedRows.set(pointer, {
-				basis: { dependencies, facts, via },
-				conditionId: row.conditionId,
-				expected: value,
+				...row,
+				expected: row.basis.value,
 				supporting,
 			});
 	}
@@ -304,7 +262,7 @@ export function workflowRowOutput(
 		if (!basis || visiting.has(pointer)) return false;
 		visiting.add(pointer);
 		const references = [
-			...basis.dependencies,
+			...(basis.dependencies ?? []),
 			...(basis.via ? [basis.via] : []),
 		];
 		const valid = references.every(

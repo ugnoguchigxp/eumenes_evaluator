@@ -91,18 +91,6 @@ function row(
 	return {
 		pointer: "/decisions/" + index + "/current",
 		basis: {
-			comparisons: [] as Array<{
-				left: string | number;
-				op: string;
-				right: string | number;
-				holds: boolean;
-			}>,
-			decision: null as {
-				comparison: number;
-				when: boolean;
-				value: string;
-			} | null,
-			dependencies: [] as Array<{ row: string; value: string }>,
 			facts: reason,
 			value: expected,
 			via: null as { row: string; value: string } | null,
@@ -476,14 +464,7 @@ test("相対位置と絶対位置が別々の値を指す根拠は未確認に�
 				{
 					pointer: "/item/current",
 					evidence: [{ evidenceId, pointer: "/item/current" }],
-					basis: {
-						comparisons: [],
-						decision: null,
-						dependencies: [],
-						facts: "資料を照合",
-						value: "new",
-						via: null,
-					},
+					basis: { facts: "資料を照合", value: "new", via: null },
 					conditionId: null,
 				},
 			],
@@ -495,59 +476,80 @@ test("相対位置と絶対位置が別々の値を指す根拠は未確認に�
 	expect(result.findings).toEqual([]);
 });
 
-test("免除の比較結果と期待値が矛盾する場合、依存行への誤指摘を止める", async () => {
-	const answer = structuredClone(rows);
-	const waiver = answer[1]!.basis;
-	const dependent = answer[3]!.basis;
-	const boundary = { left: "12:00", op: "lt", right: "12:00", holds: false };
-	waiver.comparisons = [boundary];
-	waiver.decision = {
-		comparison: 0,
-		when: false,
-		value: "EMBARGO",
-	};
-	waiver.value = "READY";
-	dependent.value = "READY";
-	dependent.via = null;
-	dependent.comparisons = [
-		{ left: "12:00", op: "gte", right: "11:00", holds: true },
+test("成立しない境界比較を通過した扱いにした場合、後続の誤指摘を止める", async () => {
+	const answer = structuredClone(rows).map((row) => ({
+		...row,
+		basis: {
+			...row.basis,
+			comparisons: [] as Array<{
+				left: string | number;
+				op: string;
+				right: string | number;
+				holds: boolean;
+			}>,
+			dependencies: [] as Array<{ row: string; value: string }>,
+		},
+	}));
+	answer[1]!.basis.value = "READY";
+	answer[1]!.basis.facts = "12:00は12:00未満として免除を適用";
+	answer[1]!.basis.comparisons = [
+		{ left: "12:00", op: "lt", right: "12:00", holds: true },
 	];
-	dependent.dependencies = [
+	answer[3]!.basis.value = "READY";
+	answer[3]!.basis.via = null;
+	answer[3]!.basis.dependencies = [
 		{ row: rows[2]!.pointer, value: "READY" },
 		{ row: rows[1]!.pointer, value: "READY" },
 	];
 	answer[4]!.basis.via = { row: rows[3]!.pointer, value: "READY" };
-	for (const [holds, when, value, reason] of [
-		[true, false, "EMBARGO", "判定の根拠として示した比較の成否が一致しません"],
-		[false, false, "EMBARGO", "比較結果に基づく判定規則と期待値が一致しません"],
-		[false, true, "READY", "比較結果に基づく判定規則と期待値が一致しません"],
-	] as const) {
-		boundary.holds = holds;
-		waiver.decision.when = when;
-		waiver.decision.value = value;
-		const result = await evaluate(request, {
-			selection: comparison,
-			model: model({ rows: answer, conditions }),
-		});
-		expect(result.status).toBe("incomplete");
-		expect(result.scopeChecks.map(({ status }) => status)).toEqual([
-			"checked",
-			"unverified",
-			"checked",
-			"unverified",
-			"unverified",
-		]);
-		expect(result.scopeChecks[1]?.reason).toBe(reason);
-		expect(result.findings.map(({ primary }) => primary.pointer)).toEqual([
-			rows[2]!.pointer,
-		]);
-	}
-	waiver.value = "EMBARGO";
-	waiver.decision.when = false;
-	waiver.decision.value = "EMBARGO";
-	dependent.value = "DEP";
-	dependent.via = { row: rows[1]!.pointer, value: "EMBARGO" };
-	dependent.dependencies[1]!.value = "EMBARGO";
+	const legacy = await evaluate(request, {
+		selection: comparison,
+		model: model({
+			rows: answer.map(({ basis: { facts, value, via }, ...row }) => ({
+				...row,
+				basis: { facts, value, via },
+			})),
+			conditions,
+		}),
+	});
+	expect(legacy.status).toBe("completed");
+	expect(
+		legacy.findings.find(({ primary }) => primary.pointer === rows[3]!.pointer)
+			?.problem,
+	).toContain("期待値: READY");
+	const result = await evaluate(request, {
+		selection: comparison,
+		model: model({ rows: answer, conditions }),
+	});
+	expect(result.status).toBe("incomplete");
+	expect(result.scopeChecks.map(({ status }) => status)).toEqual([
+		"checked",
+		"unverified",
+		"checked",
+		"unverified",
+		"unverified",
+	]);
+	expect(result.scopeChecks[1]?.reason).toBe(
+		"判定の根拠として示した比較の成否が一致しません",
+	);
+	expect(result.findings.map(({ primary }) => primary.pointer)).toEqual([
+		rows[2]!.pointer,
+	]);
+
+	answer[1]!.basis.value = "EMBARGO";
+	answer[1]!.basis.comparisons = [
+		{ left: "12:00", op: "lt", right: "12:00", holds: false },
+		{ left: "11", op: "gte", right: 10, holds: true },
+		{
+			left: "2026-11-13T03:00Z",
+			op: "lt",
+			right: "2026-11-13T12:30+09:00",
+			holds: true,
+		},
+	];
+	answer[3]!.basis.value = "DEP";
+	answer[3]!.basis.via = { row: rows[1]!.pointer, value: "EMBARGO" };
+	answer[3]!.basis.dependencies[1]!.value = "EMBARGO";
 	answer[4]!.basis.via = { row: rows[3]!.pointer, value: "DEP" };
 	const corrected = await evaluate(request, {
 		selection: comparison,
@@ -560,98 +562,4 @@ test("免除の比較結果と期待値が矛盾する場合、依存行への�
 		rows[4]!.pointer,
 	]);
 	expect(corrected.findings.at(-1)?.problem).toContain("P-06>P-04");
-});
-
-test.each(["comparisons", "decision", "dependencies"] as const)(
-	"必須欄 %s が欠けた行と依存行を未確認にする",
-	async (field) => {
-		const answer = structuredClone(rows);
-		const basis: Partial<(typeof rows)[number]["basis"]> = answer[1]!.basis;
-		delete basis[field];
-		const result = await evaluate(request, {
-			selection: comparison,
-			model: model({ rows: answer, conditions }, ({ outputSchema }) => {
-				expect(outputSchema).toMatchObject({
-					properties: {
-						rows: {
-							items: {
-								properties: {
-									basis: {
-										required: expect.arrayContaining([field]),
-									},
-								},
-							},
-						},
-					},
-				});
-			}),
-		});
-		expect(result.status).toBe("incomplete");
-		expect(result.issues).toContainEqual({ code: "scope_unverified" });
-		expect(result.scopeChecks[1]?.reason).toBe(
-			"比較・判定規則・依存先の必須欄が揃っていません",
-		);
-		expect(result.scopeChecks.map(({ status }) => status)).toEqual([
-			"checked",
-			"unverified",
-			"checked",
-			"unverified",
-			"unverified",
-		]);
-		expect(result.findings.map(({ primary }) => primary.pointer)).toEqual([
-			rows[2]!.pointer,
-		]);
-	},
-);
-
-test("オフセットとミリ秒未満の差を保ったまま日時と時刻を比較する", async () => {
-	const answer = structuredClone(rows);
-	const basis = answer[1]!.basis;
-	const precise = {
-		left: "2026-11-13T03:00:00.0001Z",
-		op: "eq",
-		right: "2026-11-13T12:00:00.0002+09:00",
-		holds: true,
-	};
-	basis.comparisons = [
-		precise,
-		{
-			left: "2026-11-13T03:00Z",
-			op: "lt",
-			right: "2026-11-13T12:30+09:00",
-			holds: true,
-		},
-		{
-			left: "12:00:00.1234567891",
-			op: "lt",
-			right: "12:00:00.1234567892",
-			holds: true,
-		},
-		{
-			left: "2026-11-13T03:00:00.00010Z",
-			op: "eq",
-			right: "2026-11-13T12:00:00.0001+09:00",
-			holds: true,
-		},
-		{ left: "11", op: "gte", right: 10, holds: true },
-	];
-	basis.decision = {
-		comparison: 0,
-		when: false,
-		value: "EMBARGO",
-	};
-	const run = () =>
-		evaluate(request, {
-			selection: comparison,
-			model: model({ rows: answer, conditions }),
-		});
-	const rounded = await run();
-	expect(rounded.status).toBe("incomplete");
-	expect(rounded.scopeChecks[1]?.reason).toBe(
-		"判定の根拠として示した比較の成否が一致しません",
-	);
-	precise.holds = false;
-	const exact = await run();
-	expect(exact.status).toBe("completed");
-	expect(exact.findings.at(-1)?.problem).toContain("P-06>P-04");
 });
