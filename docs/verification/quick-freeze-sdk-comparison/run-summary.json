@@ -1,0 +1,484 @@
+[
+  {
+    "arm": "quick",
+    "stats": [
+      {
+        "case": "hard-02",
+        "repetition": 1,
+        "status": "completed",
+        "call": {
+          "timeoutMs": 120000,
+          "status": "ok",
+          "inputTokens": 14186,
+          "outputTokens": 2247,
+          "model": "gpt-6-luna",
+          "elapsedMs": 22327
+        },
+        "issues": [],
+        "rawRows": 8,
+        "rawDetected": [
+          "C-11",
+          "C-13",
+          "C-15",
+          "C-16",
+          "C-17",
+          "C-18"
+        ],
+        "rawFalsePositives": [],
+        "verifiedFindings": [
+          "C-11",
+          "C-13",
+          "C-15",
+          "C-16",
+          "C-17",
+          "C-18"
+        ],
+        "deliveredFindings": [
+          "C-11",
+          "C-13",
+          "C-15",
+          "C-16",
+          "C-17",
+          "C-18"
+        ],
+        "handedOff": true,
+        "inputMatched": true
+      },
+      {
+        "case": "hard-02",
+        "repetition": 2,
+        "status": "completed",
+        "call": {
+          "timeoutMs": 120000,
+          "status": "ok",
+          "inputTokens": 14186,
+          "outputTokens": 2546,
+          "model": "gpt-6-luna",
+          "elapsedMs": 24318
+        },
+        "issues": [],
+        "rawRows": 8,
+        "rawDetected": [
+          "C-11",
+          "C-13",
+          "C-15",
+          "C-16",
+          "C-17",
+          "C-18"
+        ],
+        "rawFalsePositives": [],
+        "verifiedFindings": [
+          "C-11",
+          "C-13",
+          "C-15",
+          "C-16",
+          "C-17",
+          "C-18"
+        ],
+        "deliveredFindings": [
+          "C-11",
+          "C-13",
+          "C-15",
+          "C-16",
+          "C-17",
+          "C-18"
+        ],
+        "handedOff": true,
+        "inputMatched": true
+      },
+      {
+        "case": "hard-04",
+        "repetition": 1,
+        "status": "incomplete",
+        "call": {
+          "timeoutMs": 120000,
+          "status": "ok",
+          "inputTokens": 13801,
+          "outputTokens": 2868,
+          "model": "gpt-6-luna",
+          "elapsedMs": 28478
+        },
+        "issues": [
+          {
+            "code": "scope_unverified"
+          }
+        ],
+        "rawRows": 8,
+        "rawDetected": [
+          "S-07",
+          "S-08"
+        ],
+        "rawFalsePositives": [],
+        "verifiedFindings": [],
+        "deliveredFindings": [],
+        "handedOff": false,
+        "inputMatched": true
+      },
+      {
+        "case": "hard-04",
+        "repetition": 2,
+        "status": "completed",
+        "call": {
+          "timeoutMs": 120000,
+          "status": "ok",
+          "inputTokens": 13801,
+          "outputTokens": 2864,
+          "model": "gpt-6-luna",
+          "elapsedMs": 25566
+        },
+        "issues": [],
+        "rawRows": 8,
+        "rawDetected": [
+          "S-03",
+          "S-04",
+          "S-07",
+          "S-08"
+        ],
+        "rawFalsePositives": [],
+        "verifiedFindings": [
+          "S-03",
+          "S-04",
+          "S-07",
+          "S-08"
+        ],
+        "deliveredFindings": [
+          "S-03",
+          "S-04",
+          "S-07",
+          "S-08"
+        ],
+        "handedOff": true,
+        "inputMatched": true
+      },
+      {
+        "case": "hard-05",
+        "repetition": 1,
+        "status": "completed",
+        "call": {
+          "timeoutMs": 120000,
+          "status": "ok",
+          "inputTokens": 14528,
+          "outputTokens": 2895,
+          "model": "gpt-6-luna",
+          "elapsedMs": 27300
+        },
+        "issues": [],
+        "rawRows": 8,
+        "rawDetected": [
+          "P-01",
+          "P-03",
+          "P-04",
+          "P-05",
+          "P-07"
+        ],
+        "rawFalsePositives": [],
+        "verifiedFindings": [
+          "P-01",
+          "P-03",
+          "P-04",
+          "P-05",
+          "P-07"
+        ],
+        "deliveredFindings": [
+          "P-01",
+          "P-03",
+          "P-04",
+          "P-05",
+          "P-07"
+        ],
+        "handedOff": true,
+        "inputMatched": true
+      },
+      {
+        "case": "hard-05",
+        "repetition": 2,
+        "status": "completed",
+        "call": {
+          "timeoutMs": 120000,
+          "status": "ok",
+          "inputTokens": 14531,
+          "outputTokens": 4001,
+          "model": "gpt-6-luna",
+          "elapsedMs": 40241
+        },
+        "issues": [],
+        "rawRows": 8,
+        "rawDetected": [
+          "P-01",
+          "P-03",
+          "P-04",
+          "P-05",
+          "P-07"
+        ],
+        "rawFalsePositives": [],
+        "verifiedFindings": [
+          "P-01",
+          "P-03",
+          "P-04",
+          "P-05",
+          "P-07"
+        ],
+        "deliveredFindings": [
+          "P-01",
+          "P-03",
+          "P-04",
+          "P-05",
+          "P-07"
+        ],
+        "handedOff": true,
+        "inputMatched": true
+      }
+    ],
+    "usage": {
+      "inputTokens": 85033,
+      "outputTokens": 17421,
+      "medianMs": 26433,
+      "minMs": 22327,
+      "maxMs": 40241
+    },
+    "rawDetected": 28,
+    "rawFalsePositives": 0
+  },
+  {
+    "arm": "codex-bare",
+    "stats": [
+      {
+        "case": "hard-02",
+        "repetition": 1,
+        "status": "completed",
+        "call": {
+          "timeoutMs": 120000,
+          "status": "ok",
+          "inputTokens": 13248,
+          "outputTokens": 2286,
+          "model": "gpt-6-luna",
+          "elapsedMs": 24668
+        },
+        "issues": [],
+        "rawRows": 8,
+        "rawDetected": [
+          "C-11",
+          "C-13",
+          "C-15",
+          "C-16",
+          "C-18"
+        ],
+        "rawFalsePositives": [],
+        "verifiedFindings": [
+          "C-11",
+          "C-13",
+          "C-15",
+          "C-16",
+          "C-18"
+        ],
+        "deliveredFindings": [
+          "C-11",
+          "C-13",
+          "C-15",
+          "C-16",
+          "C-18"
+        ],
+        "handedOff": true,
+        "inputMatched": true
+      },
+      {
+        "case": "hard-02",
+        "repetition": 2,
+        "status": "completed",
+        "call": {
+          "timeoutMs": 120000,
+          "status": "ok",
+          "inputTokens": 13245,
+          "outputTokens": 2462,
+          "model": "gpt-6-luna",
+          "elapsedMs": 23932
+        },
+        "issues": [],
+        "rawRows": 8,
+        "rawDetected": [
+          "C-11",
+          "C-13",
+          "C-15",
+          "C-16",
+          "C-17",
+          "C-18"
+        ],
+        "rawFalsePositives": [],
+        "verifiedFindings": [
+          "C-11",
+          "C-13",
+          "C-15",
+          "C-16",
+          "C-17",
+          "C-18"
+        ],
+        "deliveredFindings": [
+          "C-11",
+          "C-13",
+          "C-15",
+          "C-16",
+          "C-17",
+          "C-18"
+        ],
+        "handedOff": true,
+        "inputMatched": true
+      },
+      {
+        "case": "hard-04",
+        "repetition": 1,
+        "status": "incomplete",
+        "call": {
+          "timeoutMs": 120000,
+          "status": "ok",
+          "inputTokens": 12863,
+          "outputTokens": 2983,
+          "model": "gpt-6-luna",
+          "elapsedMs": 33323
+        },
+        "issues": [
+          {
+            "code": "scope_unverified"
+          }
+        ],
+        "rawRows": 8,
+        "rawDetected": [
+          "S-03",
+          "S-04",
+          "S-07",
+          "S-08"
+        ],
+        "rawFalsePositives": [],
+        "verifiedFindings": [
+          "S-03"
+        ],
+        "deliveredFindings": [],
+        "handedOff": false,
+        "inputMatched": true
+      },
+      {
+        "case": "hard-04",
+        "repetition": 2,
+        "status": "completed",
+        "call": {
+          "timeoutMs": 120000,
+          "status": "ok",
+          "inputTokens": 12863,
+          "outputTokens": 2772,
+          "model": "gpt-6-luna",
+          "elapsedMs": 39540
+        },
+        "issues": [],
+        "rawRows": 8,
+        "rawDetected": [
+          "S-03",
+          "S-04",
+          "S-07",
+          "S-08"
+        ],
+        "rawFalsePositives": [],
+        "verifiedFindings": [
+          "S-03",
+          "S-04",
+          "S-07",
+          "S-08"
+        ],
+        "deliveredFindings": [
+          "S-03",
+          "S-04",
+          "S-07",
+          "S-08"
+        ],
+        "handedOff": true,
+        "inputMatched": true
+      },
+      {
+        "case": "hard-05",
+        "repetition": 1,
+        "status": "completed",
+        "call": {
+          "timeoutMs": 120000,
+          "status": "ok",
+          "inputTokens": 13587,
+          "outputTokens": 2407,
+          "model": "gpt-6-luna",
+          "elapsedMs": 23402
+        },
+        "issues": [],
+        "rawRows": 8,
+        "rawDetected": [
+          "P-01",
+          "P-03",
+          "P-04",
+          "P-05",
+          "P-07"
+        ],
+        "rawFalsePositives": [],
+        "verifiedFindings": [
+          "P-01",
+          "P-03",
+          "P-04",
+          "P-05",
+          "P-07"
+        ],
+        "deliveredFindings": [
+          "P-01",
+          "P-03",
+          "P-04",
+          "P-05",
+          "P-07"
+        ],
+        "handedOff": true,
+        "inputMatched": true
+      },
+      {
+        "case": "hard-05",
+        "repetition": 2,
+        "status": "completed",
+        "call": {
+          "timeoutMs": 120000,
+          "status": "ok",
+          "inputTokens": 13584,
+          "outputTokens": 2949,
+          "model": "gpt-6-luna",
+          "elapsedMs": 32954
+        },
+        "issues": [],
+        "rawRows": 8,
+        "rawDetected": [
+          "P-01",
+          "P-03",
+          "P-05",
+          "P-07"
+        ],
+        "rawFalsePositives": [
+          "P-06"
+        ],
+        "verifiedFindings": [
+          "P-01",
+          "P-03",
+          "P-05",
+          "P-06",
+          "P-07"
+        ],
+        "deliveredFindings": [
+          "P-01",
+          "P-03",
+          "P-05",
+          "P-06",
+          "P-07"
+        ],
+        "handedOff": true,
+        "inputMatched": true
+      }
+    ],
+    "usage": {
+      "inputTokens": 79390,
+      "outputTokens": 15859,
+      "medianMs": 28811,
+      "minMs": 23402,
+      "maxMs": 39540
+    },
+    "rawDetected": 28,
+    "rawFalsePositives": 1
+  }
+]

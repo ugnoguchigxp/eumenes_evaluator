@@ -2,6 +2,10 @@
 
 固定したコード差分やワークフロー定義を一回の構造化推論で評価し、根拠付きの指摘と、確認できた範囲・条件を JSON で返します。
 
+## Quick の凍結時点
+
+Quick の実装は、2026年11月12日の比較に使った Evaluator `40a4701584aa97ac6e362ccfeba4826272bcb3a3` の状態で凍結しています。Workflow の行照合と作成担当への引継ぎは、Collaboration `c77cbbd` で検証しました。[素の Codex SDK との比較結果と行別採点](docs/verification/quick-freeze-sdk-comparison/README.md)
+
 ## 実行
 
 Bun 1.4.4 を使用します。
@@ -126,7 +130,7 @@ Quick の範囲指定で `include` に比較対象の各行を指定し、`curre
 
 `bun scripts/score-workflow-review.mjs examples/workflow-review-gold.json <runs.jsonl> <basis-grades.json>` で、違反行の検出、正常行の誤指摘、引き継いだ期待値、根拠の正しさを集計します。試行記録には `case`、`repetition`、`modelOutput`、`review`、`handoff` が必要です。根拠は引継ぎ内容と資料を照合し、`<case>:<repetition>:<row-id>` ごとに `status`（`correct`、`incorrect`、`insufficient`）と `reason` を記録します。
 
-3課題を各2回評価した保存済みの Luna 6.0 low 応答を Quick で再処理し、違反行の検出26/30、正常行の誤指摘0/18、作成担当への引継ぎ5/6が一致しました。作成担当に届いた違反行24件のうち、期待値が正しかったのは15件、根拠も正しかったのは14件でした。別途試した数量追跡では欠品引当の引継ぎが2/2件から0/2件に減ったため、行照合から外しました。生応答・根拠の採点・再処理の記録はローカルの `verification-runs/` に保存しています。
+以前の比較では、3課題を各2回評価した保存済みの Luna 6.0 low 応答を Quick で再処理し、違反行の検出26/30、正常行の誤指摘0/18、作成担当への引継ぎ5/6が一致しました。作成担当に届いた違反行24件のうち、期待値が正しかったのは15件、根拠も正しかったのは14件でした。別途試した数量追跡では欠品引当の引継ぎが2/2件から0/2件に減ったため、行照合から外しました。生応答・根拠の採点・再処理の記録はローカルの `verification-runs/` に保存しています。
 
 ## 深度を比較する
 

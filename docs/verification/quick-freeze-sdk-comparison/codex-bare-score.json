@@ -1,0 +1,351 @@
+{
+	"totals": {
+		"trials": 6,
+		"handedOff": 5,
+		"violations": 30,
+		"normal": 18,
+		"detected": 25,
+		"falsePositives": 1,
+		"deliveredDetections": 24,
+		"deliveredValueCorrect": 19,
+		"deliveredBasisCorrect": 18,
+		"deliveredBothCorrect": 18
+	},
+	"trials": [
+		{
+			"case": "hard-02",
+			"repetition": 1,
+			"handedOff": [
+				{
+					"pointer": "/decisions/0/current",
+					"id": "C-11",
+					"expected": "SEND",
+					"violation": true,
+					"value": "SEND",
+					"valueCorrect": true,
+					"basis": {
+						"status": "correct",
+						"reason": "遅着の辞退n114を除外し、n113に紐づく受理がない。"
+					}
+				},
+				{
+					"pointer": "/decisions/2/current",
+					"id": "C-13",
+					"expected": "OPT_OUT",
+					"violation": true,
+					"value": "OPT_OUT",
+					"valueCorrect": true,
+					"basis": {
+						"status": "correct",
+						"reason": "確認済み状態票の辞退n133を優先。"
+					}
+				},
+				{
+					"pointer": "/decisions/4/current",
+					"id": "C-15",
+					"expected": "EXPIRED",
+					"violation": true,
+					"value": "EXPIRED",
+					"valueCorrect": true,
+					"basis": {
+						"status": "correct",
+						"reason": "確認済み状態票の期限11:52を基準時刻12:00で経過。"
+					}
+				},
+				{
+					"pointer": "/decisions/5/current",
+					"id": "C-16",
+					"expected": "NO_CANCEL",
+					"violation": true,
+					"value": "SEND",
+					"valueCorrect": false,
+					"basis": {
+						"status": "incorrect",
+						"reason": "受領12:02の再取消n163を基準時刻時点で適用した。"
+					}
+				},
+				{
+					"pointer": "/decisions/7/current",
+					"id": "C-18",
+					"expected": "SHIPPED",
+					"violation": true,
+					"value": "SEND",
+					"valueCorrect": false,
+					"basis": {
+						"status": "incorrect",
+						"reason": "受領12:01の発送取消n185を適用し、発送n184を無効とした。"
+					}
+				}
+			]
+		},
+		{
+			"case": "hard-04",
+			"repetition": 1,
+			"handedOff": []
+		},
+		{
+			"case": "hard-05",
+			"repetition": 1,
+			"handedOff": [
+				{
+					"pointer": "/decisions/0/current",
+					"id": "P-01",
+					"expected": "CONTENT",
+					"violation": true,
+					"value": "CONTENT",
+					"valueCorrect": true,
+					"basis": {
+						"status": "correct",
+						"reason": "確認済み票でA2の内容承認a13はREVOKE。"
+					}
+				},
+				{
+					"pointer": "/decisions/2/current",
+					"id": "P-03",
+					"expected": "READY",
+					"violation": true,
+					"value": "READY",
+					"valueCorrect": true,
+					"basis": {
+						"status": "correct",
+						"reason": "確認済み票でc31とc32が有効で解禁到来済み。"
+					}
+				},
+				{
+					"pointer": "/decisions/3/current",
+					"id": "P-04",
+					"expected": "EMBARGO",
+					"violation": true,
+					"value": "EMBARGO",
+					"valueCorrect": true,
+					"basis": {
+						"status": "correct",
+						"reason": "w41の終了時刻ちょうどで免除は失効し、まだ解禁前。"
+					}
+				},
+				{
+					"pointer": "/decisions/4/current",
+					"id": "P-05",
+					"expected": "READY",
+					"violation": true,
+					"value": "READY",
+					"valueCorrect": true,
+					"basis": {
+						"status": "correct",
+						"reason": "遅着のe53を除外し、e51、e52、w51を採用。依存先P-03はREADY。"
+					}
+				},
+				{
+					"pointer": "/decisions/6/current",
+					"id": "P-07",
+					"expected": "DEP",
+					"violation": true,
+					"value": "DEP",
+					"valueCorrect": true,
+					"basis": {
+						"status": "correct",
+						"reason": "引継ぎの停止連鎖はP-06>P-04。"
+					}
+				}
+			]
+		},
+		{
+			"case": "hard-02",
+			"repetition": 2,
+			"handedOff": [
+				{
+					"pointer": "/decisions/0/current",
+					"id": "C-11",
+					"expected": "SEND",
+					"violation": true,
+					"value": "OPT_OUT",
+					"valueCorrect": false,
+					"basis": {
+						"status": "incorrect",
+						"reason": "受領12:01の辞退n114を基準時刻時点で適用した。"
+					}
+				},
+				{
+					"pointer": "/decisions/2/current",
+					"id": "C-13",
+					"expected": "OPT_OUT",
+					"violation": true,
+					"value": "OPT_OUT",
+					"valueCorrect": true,
+					"basis": {
+						"status": "correct",
+						"reason": "確認済み状態票の辞退n133を優先。"
+					}
+				},
+				{
+					"pointer": "/decisions/4/current",
+					"id": "C-15",
+					"expected": "EXPIRED",
+					"violation": true,
+					"value": "EXPIRED",
+					"valueCorrect": true,
+					"basis": {
+						"status": "correct",
+						"reason": "確認済み状態票の期限11:52を基準時刻12:00で経過。"
+					}
+				},
+				{
+					"pointer": "/decisions/5/current",
+					"id": "C-16",
+					"expected": "NO_CANCEL",
+					"violation": true,
+					"value": "SEND",
+					"valueCorrect": false,
+					"basis": {
+						"status": "incorrect",
+						"reason": "受領12:02の再取消n163を基準時刻時点で適用した。"
+					}
+				},
+				{
+					"pointer": "/decisions/6/current",
+					"id": "C-17",
+					"expected": "SENT",
+					"violation": true,
+					"value": "SENT",
+					"valueCorrect": true,
+					"basis": {
+						"status": "correct",
+						"reason": "遅着のr174を除外し、最終受理r173を優先。"
+					}
+				},
+				{
+					"pointer": "/decisions/7/current",
+					"id": "C-18",
+					"expected": "SHIPPED",
+					"violation": true,
+					"value": "SEND",
+					"valueCorrect": false,
+					"basis": {
+						"status": "incorrect",
+						"reason": "受領12:01の発送取消n185を適用し、発送n184を無効とした。"
+					}
+				}
+			]
+		},
+		{
+			"case": "hard-05",
+			"repetition": 2,
+			"handedOff": [
+				{
+					"pointer": "/decisions/0/current",
+					"id": "P-01",
+					"expected": "CONTENT",
+					"violation": true,
+					"value": "CONTENT",
+					"valueCorrect": true,
+					"basis": {
+						"status": "correct",
+						"reason": "確認済み票でA2の内容承認a13はREVOKE。"
+					}
+				},
+				{
+					"pointer": "/decisions/2/current",
+					"id": "P-03",
+					"expected": "READY",
+					"violation": true,
+					"value": "READY",
+					"valueCorrect": true,
+					"basis": {
+						"status": "correct",
+						"reason": "確認済み票でc31とc32が有効で解禁到来済み。"
+					}
+				},
+				{
+					"pointer": "/decisions/4/current",
+					"id": "P-05",
+					"expected": "READY",
+					"violation": true,
+					"value": "READY",
+					"valueCorrect": true,
+					"basis": {
+						"status": "correct",
+						"reason": "遅着のe53を除外し、e51、e52、w51を採用。依存先P-03はREADY。"
+					}
+				},
+				{
+					"pointer": "/decisions/5/current",
+					"id": "P-06",
+					"expected": "DEP",
+					"violation": false,
+					"value": "READY",
+					"valueCorrect": false,
+					"basis": {
+						"status": "incorrect",
+						"reason": "P-04をREADYと誤り、正常なDEPを誤指摘。"
+					}
+				},
+				{
+					"pointer": "/decisions/6/current",
+					"id": "P-07",
+					"expected": "DEP",
+					"violation": true,
+					"value": "DEP",
+					"valueCorrect": true,
+					"basis": {
+						"status": "incorrect",
+						"reason": "判定はDEPだが、最初の非READYはP-06。正しい連鎖はP-06>P-04でP-01ではない。"
+					}
+				}
+			]
+		},
+		{
+			"case": "hard-04",
+			"repetition": 2,
+			"handedOff": [
+				{
+					"pointer": "/decisions/2/current",
+					"id": "S-03",
+					"expected": "ALLOCATE:A1=3+A5=3+A4=2",
+					"violation": true,
+					"value": "ALLOCATE:A1=3+A5=3+A4=2",
+					"valueCorrect": true,
+					"basis": {
+						"status": "correct",
+						"reason": "m01でA1を3に修正し、自拠点A1とA5で6個、他拠点A4で残り2個を確保。"
+					}
+				},
+				{
+					"pointer": "/decisions/3/current",
+					"id": "S-04",
+					"expected": "ALLOCATE:A4=5+B2=2",
+					"violation": true,
+					"value": "ALLOCATE:A4=5+B2=2",
+					"valueCorrect": true,
+					"basis": {
+						"status": "correct",
+						"reason": "S-03でA4を2個使った残りは5個。m03は未発効でB2を2個使える。"
+					}
+				},
+				{
+					"pointer": "/decisions/6/current",
+					"id": "S-07",
+					"expected": "HOLD:3",
+					"violation": true,
+					"value": "HOLD:3",
+					"valueCorrect": true,
+					"basis": {
+						"status": "correct",
+						"reason": "B2の残りは2個。他拠点B1は期限15で最低期限16を満たさず、不足3。"
+					}
+				},
+				{
+					"pointer": "/decisions/7/current",
+					"id": "S-08",
+					"expected": "ALLOCATE:B1=4",
+					"violation": true,
+					"value": "ALLOCATE:B1=4",
+					"valueCorrect": true,
+					"basis": {
+						"status": "correct",
+						"reason": "B1はEの自拠点で5個残り、代替許可により4個を確保。"
+					}
+				}
+			]
+		}
+	]
+}
