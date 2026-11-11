@@ -53,6 +53,24 @@ export const scopeSelectionSchema = z.strictObject({
 	include: z.array(selectors).min(1).max(256),
 	conditionIds: ids.default([]),
 	focus: z.string().min(1).max(4000).optional(),
+	currentValuePointer: z
+		.string()
+		.min(1)
+		.max(2048)
+		.refine((value) => pointerTokens(value) !== undefined)
+		.optional(),
+	rowLabelPointer: z
+		.string()
+		.min(1)
+		.max(2048)
+		.refine((value) => pointerTokens(value) !== undefined)
+		.optional(),
+	expectedValues: z
+		.array(z.string().max(500))
+		.min(1)
+		.max(256)
+		.refine((values) => new Set(values).size === values.length)
+		.optional(),
 	evidence: z
 		.strictObject({
 			initial: ids.default([]),
@@ -250,6 +268,51 @@ export function resolveScope(request: EvaluationRequest, input: unknown) {
 		(item) => permitted.has(item.id),
 	);
 	const initialEvidence = catalog.filter((item) => initialIds.has(item.id));
+	const { currentValuePointer, rowLabelPointer, expectedValues } = selection;
+	if (expectedValues !== undefined && currentValuePointer === undefined)
+		throw new ScopeError(
+			"invalid_scope_selection",
+			"expectedValues requires currentValuePointer",
+		);
+	if (
+		currentValuePointer !== undefined &&
+		(target.kind !== "workflow" ||
+			projected.some((item) => {
+				const current =
+					item.kind === "json"
+						? readPointer(item.document, pointerTokens(currentValuePointer)!)
+						: undefined;
+				return (
+					typeof current !== "string" ||
+					current.length > 500 ||
+					("pointerRoot" in item &&
+						item.pointerRoot.length + currentValuePointer.length > 2048)
+				);
+			}))
+	)
+		throw new ScopeError(
+			"invalid_scope_selection",
+			"currentValuePointer must address a string of at most 500 characters in every selected workflow row",
+		);
+	if (rowLabelPointer !== undefined) {
+		const labels = projected.map((item) =>
+			item.kind === "json"
+				? readPointer(item.document, pointerTokens(rowLabelPointer)!)
+				: undefined,
+		);
+		if (
+			currentValuePointer === undefined ||
+			labels.some(
+				(label) =>
+					typeof label !== "string" || !label.trim() || label.length > 100,
+			) ||
+			new Set(labels).size !== labels.length
+		)
+			throw new ScopeError(
+				"invalid_scope_selection",
+				"rowLabelPointer must identify each compared row uniquely",
+			);
+	}
 	const availableIds = new Set(catalog.map((item) => item.id));
 	const present = new Set(initialEvidence.map((item) => item.id));
 	const scopeIds = [
@@ -294,6 +357,9 @@ export function resolveScope(request: EvaluationRequest, input: unknown) {
 		scopeIds,
 		unavailableConditions,
 		focus: selection.focus,
+		currentValuePointer,
+		rowLabelPointer,
+		expectedValues,
 		// Only used to validate archives created before conditions were bound to the preview.
 		legacyDigest: fingerprint(scopeSnapshot),
 		summary: {
@@ -320,6 +386,9 @@ export function resolveScope(request: EvaluationRequest, input: unknown) {
 					: {}),
 			},
 			selected: projected.map(evidenceCoordinates),
+			...(currentValuePointer === undefined ? {} : { currentValuePointer }),
+			...(rowLabelPointer === undefined ? {} : { rowLabelPointer }),
+			...(expectedValues === undefined ? {} : { expectedValues }),
 			initialEvidenceIds: initial,
 			allowedEvidenceIds: [...permitted],
 			availableEvidence: catalog.map(evidenceCoordinates),

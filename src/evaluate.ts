@@ -49,6 +49,11 @@ import {
 	type ResolvedScope,
 } from "./scope";
 import { activeConditions, targetDigests, targetEvidence } from "./snapshot";
+import {
+	workflowRowInstructions,
+	workflowRowOutput,
+	workflowRowSchema,
+} from "./workflow-rows";
 
 const outputSchema = modelOutputSchema.toJSONSchema();
 const stagedOutputSchema = verificationOutputSchema.toJSONSchema();
@@ -156,9 +161,15 @@ export function previewScope(input: unknown, selection: unknown) {
 function parseModelOutput(
 	text: string,
 	staged: boolean,
+	compareRows?: (json: unknown) => ModelOutput | undefined,
 ): { output: ModelOutput; questionChecks: QuestionCheck[] } | undefined {
 	try {
 		const json = JSON.parse(text);
+		if (compareRows) {
+			const output = compareRows(json);
+			if (output) return { output, questionChecks: [] };
+			return;
+		}
 		if (
 			staged &&
 			json &&
@@ -370,6 +381,13 @@ export async function evaluate(
 		}
 		baseline.scopeSelection = resolved.summary;
 		baseline.inputDigest = evaluationInputDigest(request, resolved, depth);
+		if (resolved.currentValuePointer !== undefined && depth !== "quick")
+			return finish("failed", [
+				{
+					code: "invalid_scope_selection",
+					detail: "currentValuePointer requires Quick",
+				},
+			]);
 		if (
 			expectedScopeDigest !== undefined &&
 			expectedScopeDigest !== resolved.summary.digest
@@ -399,9 +417,33 @@ export async function evaluate(
 		);
 	}
 
-	const system =
-		rubricInstructions(request.rubric) +
-		(resolved ? "\n" + scopedReviewInstructions : "");
+	const currentValuePointer = resolved?.currentValuePointer;
+	const rowLabelPointer = resolved?.rowLabelPointer;
+	const expectedValues = resolved?.expectedValues;
+	const comparisonPointers =
+		resolved?.summary.selected.flatMap((item) =>
+			currentValuePointer !== undefined && "pointerRoot" in item
+				? [item.pointerRoot + currentValuePointer]
+				: [],
+		) ?? [];
+	const compareRows =
+		currentValuePointer === undefined
+			? undefined
+			: (json: unknown) =>
+					workflowRowOutput(
+						json,
+						selected,
+						evidence,
+						scope,
+						currentValuePointer,
+						conditionIds,
+						rowLabelPointer,
+						expectedValues,
+					);
+	const system = compareRows
+		? [...reviewContext(request.rubric), workflowRowInstructions].join("\n")
+		: rubricInstructions(request.rubric) +
+			(resolved ? "\n" + scopedReviewInstructions : "");
 	const { limits } = request;
 	const budgetMs =
 		depth === "quick"
@@ -419,7 +461,15 @@ export async function evaluate(
 	const runner = startModelStages(model, parent, limits, deadline, stages);
 	const { complete, checkDeadline } = runner;
 	try {
-		let verification: object = packet;
+		let verification: object = compareRows
+			? {
+					...packet,
+					currentValuePointer,
+					rowLabelPointer,
+					comparisonPointers,
+					expectedValues,
+				}
+			: packet;
 		let instructions = system;
 		let steered: ReturnType<typeof prepareSteeredVerification>;
 		if (depth !== "quick") {
@@ -509,7 +559,17 @@ export async function evaluate(
 			"verification",
 			instructions,
 			verification,
-			depth === "quick" ? outputSchema : stagedOutputSchema,
+			compareRows
+				? workflowRowSchema(
+						comparisonPointers,
+						[...evidence.values()]
+							.filter((item) => item.kind === "json" && !item.clipped)
+							.map(({ id }) => id),
+						expectedValues,
+					)
+				: depth === "quick"
+					? outputSchema
+					: stagedOutputSchema,
 			delivery,
 		).finally(() => {
 			if (delivery && steered) steeringReceipt = steered.settle(delivery);
@@ -517,7 +577,7 @@ export async function evaluate(
 		const output =
 			typeof response.text === "string" &&
 			Buffer.byteLength(response.text) <= MAX_RESPONSE_BYTES
-				? parseModelOutput(response.text, depth !== "quick")
+				? parseModelOutput(response.text, depth !== "quick", compareRows)
 				: undefined;
 		checkDeadline();
 		if (!output)

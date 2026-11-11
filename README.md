@@ -106,6 +106,24 @@ bun run quick examples/cases/retry-delay.json --scope examples/scopes/retry-line
 - `conditionIds` に今回の評価で照合する確定条件を、`focus` に確認事項を指定できます。条件 ID を省略した範囲指定では、成果物の条件本文を推論に渡しません。
 - `standard` は二回の推論の間に、要求された許可済み資料を一度取得します。`recheck` は同じ資料のまま二回推論します。Standard の結果には各段階の入力識別子、取得した資料、使用量と、`review.questions` に問いごとの結論・根拠が付きます。最終判定で回答されなかった問いは未確認として残ります。
 
+### Workflow の現行値を行ごとに照合する
+
+Quick の範囲指定で `include` に比較対象の各行を指定し、`currentValuePointer` に各行から見た現行値の JSON Pointer を指定します。例えば `include` に `/decisions/0`、`currentValuePointer` に `/current` を指定すると、比較対象は `/decisions/0/current` の文字列です。
+
+基準時刻や台帳など、再計算に必要な JSON 資料を `evidence.initial` で明示します。対象文書の全体を参照してよい場合は `workflow` を指定できます。モデルは許可された資料から期待値とその根拠を返し、Evaluator が固定された現行値と照合して差異を指摘に変換します。未回答、期待値を決められない行、根拠位置を確認できない行は未確認です。
+
+モデルは根拠を照合した後、判定欄に入る期待値を一度だけ返します。別の行の判定が決め手となる場合、モデルは直接の依存先とその判定値を指定します。Evaluator は参照先の判定値を照合して連鎖を組み立てます。参照先の欠落、未確認、判定値の不一致、循環は未確認です。`rowLabelPointer` を指定すると、連鎖の表示に各行の一意なラベルを使います。
+
+業務仕様で判定コードの一覧が決まっている場合は、`expectedValues` に指定できます。根拠IDなどが混ざって一覧にない値になった行は未確認です。
+
+独自のモデル接続では、Evaluator が渡す `system`・`prompt`・`outputSchema` を使い、モデルの応答を `ModelResponse.text` に渡します。行の指摘や条件判定への変換は Evaluator 内で行います。返却する評価結果の形式は通常の Quick と共通です。
+
+#### 行照合の引継ぎを採点する
+
+`bun scripts/score-workflow-review.mjs examples/workflow-review-gold.json <runs.jsonl> <basis-grades.json>` で、違反行の検出、正常行の誤指摘、引き継いだ期待値、根拠の正しさを集計します。試行記録には `case`、`repetition`、`modelOutput`、`review`、`handoff` が必要です。根拠は引継ぎ内容と資料を照合し、`<case>:<repetition>:<row-id>` ごとに `status`（`correct`、`incorrect`、`insufficient`）と `reason` を記録します。
+
+3課題を各2回評価した保存済みの Luna 6.0 low 応答を Quick で再処理し、違反行の検出26/30、正常行の誤指摘0/18、作成担当への引継ぎ5/6が一致しました。作成担当に届いた違反行24件のうち、期待値が正しかったのは15件、根拠も正しかったのは14件でした。別途試した数量追跡では欠品引当の引継ぎが2/2件から0/2件に減ったため、行照合から外しました。生応答・根拠の採点・再処理の記録はローカルの `verification-runs/` に保存しています。
+
 ## 深度を比較する
 
 ```sh

@@ -1,0 +1,128 @@
+{
+	"hard-02": {
+		"/decisions/0/current": {
+			"id": "C-11",
+			"expected": "SEND",
+			"violation": true
+		},
+		"/decisions/1/current": {
+			"id": "C-12",
+			"expected": "SEND",
+			"violation": false
+		},
+		"/decisions/2/current": {
+			"id": "C-13",
+			"expected": "OPT_OUT",
+			"violation": true
+		},
+		"/decisions/3/current": {
+			"id": "C-14",
+			"expected": "SHIPPED",
+			"violation": false
+		},
+		"/decisions/4/current": {
+			"id": "C-15",
+			"expected": "EXPIRED",
+			"violation": true
+		},
+		"/decisions/5/current": {
+			"id": "C-16",
+			"expected": "NO_CANCEL",
+			"violation": true
+		},
+		"/decisions/6/current": {
+			"id": "C-17",
+			"expected": "SENT",
+			"violation": true
+		},
+		"/decisions/7/current": {
+			"id": "C-18",
+			"expected": "SHIPPED",
+			"violation": true
+		}
+	},
+	"hard-04": {
+		"/decisions/0/current": {
+			"id": "S-01",
+			"expected": "ALLOCATE:A0=4",
+			"violation": false
+		},
+		"/decisions/1/current": {
+			"id": "S-02",
+			"expected": "ALLOCATE:A3=6",
+			"violation": false
+		},
+		"/decisions/2/current": {
+			"id": "S-03",
+			"expected": "ALLOCATE:A1=3+A5=3+A4=2",
+			"violation": true
+		},
+		"/decisions/3/current": {
+			"id": "S-04",
+			"expected": "ALLOCATE:A4=5+B2=2",
+			"violation": true
+		},
+		"/decisions/4/current": {
+			"id": "S-05",
+			"expected": "HOLD:2",
+			"violation": false
+		},
+		"/decisions/5/current": {
+			"id": "S-06",
+			"expected": "HOLD:1",
+			"violation": false
+		},
+		"/decisions/6/current": {
+			"id": "S-07",
+			"expected": "HOLD:3",
+			"violation": true
+		},
+		"/decisions/7/current": {
+			"id": "S-08",
+			"expected": "ALLOCATE:B1=4",
+			"violation": true
+		}
+	},
+	"hard-05": {
+		"/decisions/0/current": {
+			"id": "P-01",
+			"expected": "CONTENT",
+			"violation": true
+		},
+		"/decisions/1/current": {
+			"id": "P-02",
+			"expected": "SCOPE",
+			"violation": false
+		},
+		"/decisions/2/current": {
+			"id": "P-03",
+			"expected": "READY",
+			"violation": true
+		},
+		"/decisions/3/current": {
+			"id": "P-04",
+			"expected": "EMBARGO",
+			"violation": true
+		},
+		"/decisions/4/current": {
+			"id": "P-05",
+			"expected": "READY",
+			"violation": true
+		},
+		"/decisions/5/current": {
+			"id": "P-06",
+			"expected": "DEP",
+			"violation": false
+		},
+		"/decisions/6/current": {
+			"id": "P-07",
+			"expected": "DEP",
+			"violation": true
+		},
+		"/decisions/7/current": {
+			"id": "P-08",
+			"expected": "EMBARGO",
+			"violation": false
+		}
+	}
+}
