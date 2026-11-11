@@ -1,0 +1,30 @@
+{
+	"version": 1,
+	"targetId": "cedar-feed-cursor",
+	"targetVersion": "2",
+	"targetDigest": "1d7d0c129cb7df5342f27f8991f60fa324ae4d3df9151161a20eaab952c9aae1",
+	"include": [
+		{
+			"kind": "file",
+			"path": "src/feed/page.ts"
+		}
+	],
+	"conditionIds": [
+		"acceptance"
+	],
+	"evidence": {
+		"allowed": [
+			"feed-export-order",
+			"feed-page-cursor-v1",
+			"feed-next-page-filter",
+			"feed-schema",
+			"feed-sort-columns",
+			"feed-pagination-api",
+			"feed-router",
+			"feed-cache-keys"
+		],
+		"initial": [],
+		"required": []
+	},
+	"focus": "アクティビティフィードの並び順と継続カーソルが整合するか確認する。"
+}

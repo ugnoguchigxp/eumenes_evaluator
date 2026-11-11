@@ -1,0 +1,45 @@
+{
+	"contractVersion": 1,
+	"evaluationId": "inventory-denominator",
+	"rubric": {
+		"id": "code-correctness",
+		"version": 1
+	},
+	"target": {
+		"kind": "code",
+		"id": "inventory-denominator",
+		"version": "2",
+		"base": "3a3ba1df8b4b37da7364c6c1033a064278939a24",
+		"head": "b242dfaf0eba5c1f9467606258fc9ed2eeb57a87",
+		"changes": [
+			{
+				"id": "edit-1",
+				"path": "src/utilization.ts",
+				"before": {
+					"startLine": 10,
+					"text": "if (capacity === 0) return 0;\nreturn used / capacity;\n"
+				},
+				"after": {
+					"startLine": 10,
+					"text": "return used / capacity;\n"
+				}
+			}
+		],
+		"digest": "a0194ba36789ca6f2e273d40e03c1062ee82b5c87b6827a4f624558ffc8dae6c",
+		"diffDigest": "32a6247d217d008089b3a3af2affaf062be69da6ac9450991c4b4e7f038f62c2"
+	},
+	"scope": [
+		"edit-1:base",
+		"edit-1:head"
+	],
+	"evidence": [],
+	"originalRequest": "在庫利用率の実装を整理する。",
+	"conditions": {
+		"state": "none"
+	},
+	"limits": {
+		"timeoutMs": 120000,
+		"maxInputBytes": 24000,
+		"maxOutputTokens": 4096
+	}
+}

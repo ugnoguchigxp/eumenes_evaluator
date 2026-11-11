@@ -1,0 +1,59 @@
+{
+	"contractVersion": 1,
+	"evaluationId": "queue-state-merge",
+	"rubric": {
+		"id": "code-correctness",
+		"version": 1
+	},
+	"target": {
+		"kind": "code",
+		"id": "queue-state-merge",
+		"version": "2",
+		"base": "0532e4ad5b2b4e02f1f1d94c04abb8c2364be6c1",
+		"head": "604b96a48e238761a0435fe1820e2f8353faa4b3",
+		"changes": [
+			{
+				"id": "edit-1",
+				"path": "src/resume.ts",
+				"before": {
+					"startLine": 10,
+					"text": "const state = { ...defaults, ...saved };\nreturn execute(state.cursor, state.completedIds);\n"
+				},
+				"after": {
+					"startLine": 10,
+					"text": "const state = { ...saved, ...defaults };\nreturn execute(state.cursor, state.completedIds);\n"
+				}
+			},
+			{
+				"id": "edit-2",
+				"path": "src/defaults.ts",
+				"before": {
+					"startLine": 10,
+					"text": "export const defaults = { cursor: 0, completedIds: [] as string[] };\n"
+				},
+				"after": {
+					"startLine": 10,
+					"text": "const firstCursor = 0;\nexport const defaults = { cursor: firstCursor, completedIds: [] as string[] };\n"
+				}
+			}
+		],
+		"digest": "692e8eb829f0af68bede41147a1ca5bd2f17c48ad4c76955ca0296d4309a2b12",
+		"diffDigest": "ff009f6dc71c7a18280a208ea53d44fad44452fe802544cc62497aa1d4603ab2"
+	},
+	"scope": [
+		"edit-1:base",
+		"edit-1:head",
+		"edit-2:base",
+		"edit-2:head"
+	],
+	"evidence": [],
+	"originalRequest": "再開時に既定値をマージする処理を簡潔にする。",
+	"conditions": {
+		"state": "none"
+	},
+	"limits": {
+		"timeoutMs": 120000,
+		"maxInputBytes": 24000,
+		"maxOutputTokens": 4096
+	}
+}

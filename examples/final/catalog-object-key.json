@@ -1,0 +1,73 @@
+{
+	"contractVersion": 1,
+	"evaluationId": "catalog-object-key",
+	"rubric": {
+		"id": "code-correctness",
+		"version": 1
+	},
+	"target": {
+		"kind": "code",
+		"id": "catalog-object-key",
+		"version": "2",
+		"base": "9ffa50d0bb0fc504db6fd5b0a851ba2b3163ac30",
+		"head": "ed873936dba5f8c0cbde887eeeb2d752dc492059",
+		"changes": [
+			{
+				"id": "edit-1",
+				"path": "src/catalog/key.ts",
+				"before": {
+					"startLine": 10,
+					"text": "export function objectKey(team: string, id: string) { return [team, id].join(\":\"); }\n"
+				},
+				"after": {
+					"startLine": 10,
+					"text": "export function catalogKey(team: string, id: string) { return [team, id].join(\":\"); }\n"
+				}
+			},
+			{
+				"id": "edit-2",
+				"path": "src/catalog/get.ts",
+				"before": {
+					"startLine": 10,
+					"text": "import { objectKey } from \"./key\";\nexport const get = (team: string, id: string) => store.get(objectKey(team, id));\n"
+				},
+				"after": {
+					"startLine": 10,
+					"text": "import { catalogKey } from \"./key\";\nexport const get = (team: string, id: string) => store.get(catalogKey(team, id));\n"
+				}
+			},
+			{
+				"id": "edit-3",
+				"path": "src/catalog/put.ts",
+				"before": {
+					"startLine": 10,
+					"text": "import { objectKey } from \"./key\";\nexport const put = (team: string, id: string, value: string) => store.set(objectKey(team, id), value);\n"
+				},
+				"after": {
+					"startLine": 10,
+					"text": "import { catalogKey } from \"./key\";\nexport const put = (team: string, id: string, value: string) => store.set(catalogKey(team, id), value);\n"
+				}
+			}
+		],
+		"digest": "78478d184437b8cfbab3bb35f9ea873d73d76dc26cd2febf3d450a87035e3a2e",
+		"diffDigest": "879c696979f9aa464bd61805ae3a27c864c515d8da3f92adb76ea72b3bf5a973"
+	},
+	"scope": [
+		"edit-1:base",
+		"edit-1:head",
+		"edit-2:base",
+		"edit-2:head",
+		"edit-3:base",
+		"edit-3:head"
+	],
+	"evidence": [],
+	"originalRequest": "内部関数の名称を揃える。",
+	"conditions": {
+		"state": "none"
+	},
+	"limits": {
+		"timeoutMs": 120000,
+		"maxInputBytes": 24000,
+		"maxOutputTokens": 4096
+	}
+}

@@ -1,0 +1,65 @@
+{
+	"contractVersion": 1,
+	"evaluationId": "chart-category-cap",
+	"rubric": {
+		"id": "code-correctness",
+		"version": 1
+	},
+	"target": {
+		"kind": "code",
+		"id": "chart-category-cap",
+		"version": "2",
+		"base": "1b84d8dcdffc603df3283f73fb9f0d8b1ad44441",
+		"head": "91d65de2f7b004bc4be1df754bb00ec0d2a5b921",
+		"changes": [
+			{
+				"id": "edit-1",
+				"path": "src/chart.ts",
+				"before": {
+					"startLine": 10,
+					"text": "const visible = categories.slice(0, 12);\nreturn plot(visible);\n"
+				},
+				"after": {
+					"startLine": 10,
+					"text": "const visible = categories.slice(0, 16);\nreturn plot(visible);\n"
+				}
+			}
+		],
+		"digest": "1b38205ceac74300c0a359b3d3dd3abd8e4035ee534e1f62b08320a3d1c42f92",
+		"diffDigest": "32085dc053319c9968437cc9d5b127531dfdda7e6aa5831d2b44c5de7f54ffda"
+	},
+	"scope": [
+		"edit-1:base",
+		"edit-1:head"
+	],
+	"evidence": [],
+	"originalRequest": "ダッシュボードのカテゴリ表示を更新する。",
+	"conditions": {
+		"state": "available",
+		"revision": "2",
+		"entries": [
+			{
+				"id": "acceptance",
+				"text": "折り返しを防ぐため、ダッシュボードのカテゴリ表示は最大12件。13件目以降は表示しない。",
+				"status": "confirmed",
+				"appliesTo": {
+					"id": "chart-category-cap",
+					"version": "2",
+					"digest": "1b38205ceac74300c0a359b3d3dd3abd8e4035ee534e1f62b08320a3d1c42f92"
+				},
+				"sources": [
+					{
+						"id": "release:acceptance",
+						"version": "2",
+						"active": true
+					}
+				]
+			}
+		]
+	},
+	"limits": {
+		"timeoutMs": 120000,
+		"maxInputBytes": 24000,
+		"maxOutputTokens": 4096
+	}
+}

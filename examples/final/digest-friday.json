@@ -1,0 +1,82 @@
+{
+	"contractVersion": 1,
+	"evaluationId": "digest-friday",
+	"rubric": {
+		"id": "code-correctness",
+		"version": 1
+	},
+	"target": {
+		"kind": "code",
+		"id": "digest-friday",
+		"version": "2",
+		"base": "e072baf243888be90c5489b95c68db35b6670ef2",
+		"head": "fba756ff9d60489f379534789591466aa4a214cc",
+		"changes": [
+			{
+				"id": "edit-1",
+				"path": "src/digest.ts",
+				"before": {
+					"startLine": 10,
+					"text": "export const schedule = { day: \"wednesday\", hour: 9, zone: \"Asia/Tokyo\" };\n"
+				},
+				"after": {
+					"startLine": 10,
+					"text": "export const schedule = { day: \"thursday\", hour: 9, zone: \"Asia/Tokyo\" };\n"
+				}
+			}
+		],
+		"digest": "8db7621559f35db337ee7e4913ede0916a4249e659243835bd442f8a4f515275",
+		"diffDigest": "5f4d9429785ac08136e8ca4b923e18619a1f750303aa9cff951b545606d84a51"
+	},
+	"scope": [
+		"edit-1:base",
+		"edit-1:head"
+	],
+	"evidence": [],
+	"originalRequest": "週次ダイジェストのスケジュールを更新する。",
+	"conditions": {
+		"state": "available",
+		"revision": "2",
+		"entries": [
+			{
+				"id": "previous",
+				"text": "日本時間の木曜9時に設定する。",
+				"status": "superseded",
+				"appliesTo": {
+					"id": "digest-friday",
+					"version": "2",
+					"digest": "8db7621559f35db337ee7e4913ede0916a4249e659243835bd442f8a4f515275"
+				},
+				"sources": [
+					{
+						"id": "release:previous",
+						"version": "1",
+						"active": true
+					}
+				]
+			},
+			{
+				"id": "acceptance",
+				"text": "週次ダイジェストの配信は木曜から金曜に訂正された。今回の配信は日本時間の金曜9時に設定する。",
+				"status": "confirmed",
+				"appliesTo": {
+					"id": "digest-friday",
+					"version": "2",
+					"digest": "8db7621559f35db337ee7e4913ede0916a4249e659243835bd442f8a4f515275"
+				},
+				"sources": [
+					{
+						"id": "release:acceptance",
+						"version": "2",
+						"active": true
+					}
+				]
+			}
+		]
+	},
+	"limits": {
+		"timeoutMs": 120000,
+		"maxInputBytes": 24000,
+		"maxOutputTokens": 4096
+	}
+}

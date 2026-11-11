@@ -1,0 +1,30 @@
+{
+	"version": 1,
+	"targetId": "juniper-feed-cursor",
+	"targetVersion": "2",
+	"targetDigest": "d37a1f799e80e00fb9a9f1e2a3d16ab51d82f7b4c08f96bed16b258356bb854b",
+	"include": [
+		{
+			"kind": "file",
+			"path": "src/feed/page.ts"
+		}
+	],
+	"conditionIds": [
+		"acceptance"
+	],
+	"evidence": {
+		"allowed": [
+			"feed-export-order",
+			"feed-page-cursor-v1",
+			"feed-next-page-filter",
+			"feed-schema",
+			"feed-sort-columns",
+			"feed-pagination-api",
+			"feed-router",
+			"feed-cache-keys"
+		],
+		"initial": [],
+		"required": []
+	},
+	"focus": "アクティビティフィードの並び順と継続カーソルが整合するか確認する。"
+}

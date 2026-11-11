@@ -1,0 +1,65 @@
+{
+	"contractVersion": 1,
+	"evaluationId": "billing-rounding-explicit",
+	"rubric": {
+		"id": "code-correctness",
+		"version": 1
+	},
+	"target": {
+		"kind": "code",
+		"id": "billing-rounding-explicit",
+		"version": "2",
+		"base": "be30647efa79d1ef3316ab45a088f524880a7c95",
+		"head": "d69aa18578a7a447fc5e4c6be895590fe32001d6",
+		"changes": [
+			{
+				"id": "edit-1",
+				"path": "src/price.ts",
+				"before": {
+					"startLine": 10,
+					"text": "return { totalCents: Math.round(netCents * rate) };\n"
+				},
+				"after": {
+					"startLine": 10,
+					"text": "const convertedCents = netCents * rate;\nconst totalCents = Math.round(convertedCents);\nreturn { totalCents };\n"
+				}
+			}
+		],
+		"digest": "16d323068b01d175e3109fcd3b151566cd7a1ef1ea339b6b24206c59f09f371d",
+		"diffDigest": "cc7d1f9bfb1d066d9b875c37d8204c19118ccb939f0feaec828ced5def064ddc"
+	},
+	"scope": [
+		"edit-1:base",
+		"edit-1:head"
+	],
+	"evidence": [],
+	"originalRequest": "集計金額の丸め方を変数で明示する。",
+	"conditions": {
+		"state": "available",
+		"revision": "2",
+		"entries": [
+			{
+				"id": "acceptance",
+				"text": "変換後の金額は Math.round で最寄りのセントに丸め、totalCents を返す。",
+				"status": "confirmed",
+				"appliesTo": {
+					"id": "billing-rounding-explicit",
+					"version": "2",
+					"digest": "16d323068b01d175e3109fcd3b151566cd7a1ef1ea339b6b24206c59f09f371d"
+				},
+				"sources": [
+					{
+						"id": "release:acceptance",
+						"version": "2",
+						"active": true
+					}
+				]
+			}
+		]
+	},
+	"limits": {
+		"timeoutMs": 120000,
+		"maxInputBytes": 24000,
+		"maxOutputTokens": 4096
+	}
+}

@@ -1,0 +1,45 @@
+{
+	"contractVersion": 1,
+	"evaluationId": "notification-preference",
+	"rubric": {
+		"id": "code-correctness",
+		"version": 1
+	},
+	"target": {
+		"kind": "code",
+		"id": "notification-preference",
+		"version": "2",
+		"base": "3c236796937a7aa84500a713a419bb70cb94d3fb",
+		"head": "9288aca4e7d0d5f77e92f529f44cdb039b45146a",
+		"changes": [
+			{
+				"id": "edit-1",
+				"path": "src/notify.ts",
+				"before": {
+					"startLine": 10,
+					"text": "if (settings.enabled) enqueue({ channel: settings.channel, text });\n"
+				},
+				"after": {
+					"startLine": 10,
+					"text": "const { enabled, channel } = settings;\nif (enabled) enqueue({ channel, text });\n"
+				}
+			}
+		],
+		"digest": "daad6b421881b56f0cd600ed63ac86686995560abaf61c5d0f8b561fc2a1481d",
+		"diffDigest": "48260ac36c4da6a4eecf97701adb932565670d52967216be1e7d0012bd483952"
+	},
+	"scope": [
+		"edit-1:base",
+		"edit-1:head"
+	],
+	"evidence": [],
+	"originalRequest": "通知の設定をまとめて扱う。",
+	"conditions": {
+		"state": "none"
+	},
+	"limits": {
+		"timeoutMs": 120000,
+		"maxInputBytes": 24000,
+		"maxOutputTokens": 4096
+	}
+}

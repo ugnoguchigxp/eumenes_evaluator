@@ -13,6 +13,7 @@ import {
 	type ModelRequest,
 	type ScopeSelection,
 } from "../src";
+import { standardEvidenceInstructions } from "../src/investigation";
 
 async function code() {
 	const fixture = requestSchema.parse(
@@ -227,7 +228,10 @@ test("ワークフローでは選択した部分木だけを送り、元文書�
 			},
 		});
 		expect(result.status).toBe(
-			pointer === "/publish/audience" ? "completed" : "failed",
+			pointer === "/publish/audience" ? "completed" : "incomplete",
+		);
+		expect(result.conditionChecks[0]?.status).toBe(
+			pointer === "/publish/audience" ? "satisfied" : "unverified",
 		);
 	}
 });
@@ -242,6 +246,9 @@ test("Standard は許可資料だけを一回取得し、根拠照合と利用�
 				const packet = JSON.parse(input.prompt);
 				expect(input.prompt).not.toContain("private_marker");
 				if ("evidenceCatalog" in packet) {
+					expect(input.system).toContain(
+						standardEvidenceInstructions.investigation,
+					);
 					expect(
 						packet.evidenceCatalog.map((item: { id: string }) => item.id),
 					).toEqual(["timer"]);
@@ -249,6 +256,9 @@ test("Standard は許可資料だけを一回取得し、根拠照合と利用�
 					return response(investigation(["timer", "restricted"]));
 				}
 				expect(packet.primaryEvidenceIds).toEqual([packet.evidence[0].id]);
+				expect(input.system).toContain(
+					standardEvidenceInstructions.verification,
+				);
 				expect(input.prompt).toContain("setTimeout");
 				return response({
 					...checked(input),
@@ -352,11 +362,13 @@ test("選択した資料 ID でも選択外の行が主根拠なら拒否する"
 			},
 		},
 	});
-	expect(result.status).toBe("failed");
+	expect(result.status).toBe("incomplete");
 	expect(result.issues).toContainEqual({
-		code: "invalid_model_references",
-		detail: "finding_location_unavailable",
+		code: "model_output_partially_rejected",
 	});
+	expect(result.rejected).toEqual([
+		{ kind: "findings", index: 0, reason: "finding_location_unavailable" },
+	]);
 	expect(result.findings).toEqual([]);
 });
 
@@ -532,12 +544,7 @@ test("Standard は未回答と明示的な未確認を残し、許可された�
 				},
 			},
 		});
-		const status =
-			variant === "resolved"
-				? "completed"
-				: variant === "outside"
-					? "failed"
-					: "incomplete";
+		const status = variant === "resolved" ? "completed" : "incomplete";
 		expect(result.status).toBe(status);
 		expect(result.review?.questions).toMatchObject([
 			{
@@ -550,10 +557,161 @@ test("Standard は未回答と明示的な未確認を残し、許可された�
 			expect(result.issues).toContainEqual({
 				code: "investigation_questions_unverified",
 			});
-		if (variant === "outside")
+		if (variant === "outside") {
 			expect(result.issues).toContainEqual({
-				code: "invalid_model_references",
-				detail: "invalid_question_check",
+				code: "model_output_partially_rejected",
 			});
+			expect(result.rejected).toEqual([
+				{ kind: "questionChecks", index: 0, reason: "invalid_question_check" },
+			]);
+		}
 	}
+});
+
+test("Standard はモデルが要求しなかった必須資料を最終判定に渡す", async () => {
+	const { request, selection } = await code();
+	const result = await evaluate(request, {
+		selection,
+		depth: "standard",
+		model: {
+			async complete(input) {
+				const packet = JSON.parse(input.prompt);
+				if ("evidenceCatalog" in packet)
+					return response({ hypotheses: [], openQuestions: [], requests: [] });
+				expect(packet.evidence.map(({ id }: { id: string }) => id)).toContain(
+					"timer",
+				);
+				return response(checked(input));
+			},
+		},
+	});
+	expect(result.status).toBe("completed");
+	expect(result.review?.stages[0]).toMatchObject({
+		requested: [],
+		acquired: ["timer"],
+		requiredAcquired: ["timer"],
+	});
+});
+
+test("範囲の未知資料を表示し、選択した確定条件の版違いは未確認として返す", async () => {
+	const { request, selection } = await approvalFixture();
+	selection.evidence!.allowed!.push("typo-id");
+	const preview = previewScope(request, selection);
+	expect(preview.unknownEvidenceIds).toEqual(["typo-id"]);
+	expect(preview.availableEvidence.map(({ id }) => id)).toEqual(["policy"]);
+	if (request.conditions.state !== "available")
+		throw new Error("missing conditions");
+	request.conditions.entries[0]!.appliesTo.version = "wrong-version";
+	const result = await evaluate(request, { selection, model: simple });
+	expect(result.status).toBe("incomplete");
+	expect(result.issues.map(({ code }) => code)).toEqual([
+		"required_conditions_unavailable",
+		"conditions_unverified",
+	]);
+	expect(result.conditionSelection).toEqual({
+		applied: [],
+		excluded: [{ id: "max-batch-size", reason: "target_mismatch" }],
+	});
+});
+
+test("CLI は比較構成の条件を揃え、二段階の固定応答を順に使う", async () => {
+	const { request, selection } = await approvalFixture();
+	const temp = await mkdtemp(join(tmpdir(), "eumenes-fixtures-"));
+	const files = Object.fromEntries(
+		["request", "scope", "plan", "final", "unconditional", "broken"].map(
+			(name) => [name, join(temp, name + ".json")],
+		),
+	) as Record<string, string>;
+	const write = (name: string, value: unknown) =>
+		Bun.write(files[name]!, JSON.stringify(value));
+	const root = fileURLToPath(new URL("..", import.meta.url));
+	const invoke = (...options: string[]) =>
+		Bun.spawnSync([process.execPath, "src/cli.ts", ...options], { cwd: root });
+	const options = [files.request!, "--scope", files.scope!];
+	try {
+		const final = await Bun.file(
+			join(root, "examples/code-response.json"),
+		).json();
+		await Promise.all([
+			write("request", request),
+			write("scope", selection),
+			write("plan", { hypotheses: [], openQuestions: [], requests: [] }),
+			write("final", { ...final, questionChecks: [] }),
+			write("unconditional", { ...final, findings: [], conditionChecks: [] }),
+			Bun.write(files.broken!, "{"),
+		]);
+		for (const arm of ["A", "B", "C", "D"]) {
+			const args = [...options, "--arm", arm];
+			const preview = invoke(...args, "--preview");
+			expect(preview.exitCode).toBe(0);
+			const summary = JSON.parse(preview.stdout.toString());
+			expect(summary.conditionIds).toEqual(
+				arm === "C" ? ["max-batch-size"] : [],
+			);
+			const execute = invoke(
+				...args,
+				"--expected-scope-digest",
+				summary.digest,
+				...(arm === "C"
+					? [
+							"--depth",
+							"standard",
+							"--fixture",
+							files.plan!,
+							"--fixture",
+							files.final!,
+						]
+					: ["--fixture", files.unconditional!]),
+			);
+			expect(execute.exitCode).toBe(0);
+			const result = JSON.parse(execute.stdout.toString());
+			expect(
+				result.conditionChecks.map(
+					({ conditionId }: { conditionId: string }) => conditionId,
+				),
+			).toEqual(summary.conditionIds);
+			if (arm === "C") expect(result.review.stages).toHaveLength(2);
+		}
+		expect(
+			invoke(
+				files.request!,
+				"--scope",
+				files.broken!,
+				"--preview",
+			).stderr.toString(),
+		).toContain("JSON を読み取れませんでした (" + files.broken! + ")");
+		const missing = join(temp, "missing.json");
+		expect(invoke(missing).stderr.toString()).toContain(
+			"ファイルを読み込めませんでした (" + missing + ")",
+		);
+	} finally {
+		await rm(temp, { recursive: true, force: true });
+	}
+});
+
+test("未対応の深度と範囲の欠落を拒否し、調査の不正出力で停止する", async () => {
+	const { request, selection } = await code();
+	let calls = 0;
+	const model: EvaluationModel = {
+		async complete() {
+			calls++;
+			return response(null);
+		},
+	};
+	const invalid = await evaluate(request, {
+		model,
+		depth: "invalid" as "quick",
+	});
+	expect(invalid.issues).toEqual([{ code: "invalid_review_depth" }]);
+	const unscoped = await evaluate(request, { model, depth: "standard" });
+	expect(unscoped.issues).toEqual([{ code: "scope_required_for_depth" }]);
+	expect(calls).toBe(0);
+	const malformed = await evaluate(request, {
+		model,
+		depth: "standard",
+		selection,
+	});
+	expect(malformed.status).toBe("failed");
+	expect(malformed.issues).toEqual([{ code: "invalid_investigation_output" }]);
+	expect(calls).toBe(1);
 });

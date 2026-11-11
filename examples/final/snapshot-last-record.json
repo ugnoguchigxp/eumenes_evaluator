@@ -1,0 +1,45 @@
+{
+	"contractVersion": 1,
+	"evaluationId": "snapshot-last-record",
+	"rubric": {
+		"id": "code-correctness",
+		"version": 1
+	},
+	"target": {
+		"kind": "code",
+		"id": "snapshot-last-record",
+		"version": "2",
+		"base": "eb007defbadd2f4d75aa8bbe5258b95e1d6434f7",
+		"head": "157524c2fea7dab941de879faa9e7b2518d06ef8",
+		"changes": [
+			{
+				"id": "edit-1",
+				"path": "src/snapshot.ts",
+				"before": {
+					"startLine": 10,
+					"text": "for (let index = 0; index < records.length; index++) {\n  output.push(project(records[index]!));\n}\n"
+				},
+				"after": {
+					"startLine": 10,
+					"text": "for (let index = 0; index < records.length - 1; index++) {\n  output.push(project(records[index]!));\n}\n"
+				}
+			}
+		],
+		"digest": "8608b58f5b7d631cfe203162f3579416e3c6dc167172bb9c85c0318a1537442c",
+		"diffDigest": "853d5231a3ad6c72eab18a435be8ffa6e3584c8c07c56af4df3d8eacc1f26b8a"
+	},
+	"scope": [
+		"edit-1:base",
+		"edit-1:head"
+	],
+	"evidence": [],
+	"originalRequest": "スナップショット作成時の配列の走査を簡略化する。",
+	"conditions": {
+		"state": "none"
+	},
+	"limits": {
+		"timeoutMs": 120000,
+		"maxInputBytes": 24000,
+		"maxOutputTokens": 4096
+	}
+}

@@ -1,0 +1,65 @@
+{
+	"contractVersion": 1,
+	"evaluationId": "label-local-rename",
+	"rubric": {
+		"id": "code-correctness",
+		"version": 1
+	},
+	"target": {
+		"kind": "code",
+		"id": "label-local-rename",
+		"version": "2",
+		"base": "024af7179c56eaf8460f9f10f15a07e88e983aa6",
+		"head": "53125f66f038de89b11a251a94c07771cb944226",
+		"changes": [
+			{
+				"id": "edit-1",
+				"path": "src/label.ts",
+				"before": {
+					"startLine": 10,
+					"text": "const value = record.displayName.trim();\nreturn { label: value };\n"
+				},
+				"after": {
+					"startLine": 10,
+					"text": "const label = record.displayName.trim();\nreturn { label };\n"
+				}
+			}
+		],
+		"digest": "f8ce3199dc4d55c0e49c1efff56b8a4438911d96a64829f19caa16e6660c77de",
+		"diffDigest": "0b881dac6c86be8cbc9e50c3c264f7b93e951b5276a87381cfbc185fc4ef58f3"
+	},
+	"scope": [
+		"edit-1:base",
+		"edit-1:head"
+	],
+	"evidence": [],
+	"originalRequest": "表示ラベルの変数名を統一する。",
+	"conditions": {
+		"state": "available",
+		"revision": "2",
+		"entries": [
+			{
+				"id": "previous",
+				"text": "出力に label に加えて旧 displayName も付ける。",
+				"status": "withdrawn",
+				"appliesTo": {
+					"id": "label-local-rename",
+					"version": "2",
+					"digest": "f8ce3199dc4d55c0e49c1efff56b8a4438911d96a64829f19caa16e6660c77de"
+				},
+				"sources": [
+					{
+						"id": "release:previous",
+						"version": "1",
+						"active": true
+					}
+				]
+			}
+		]
+	},
+	"limits": {
+		"timeoutMs": 120000,
+		"maxInputBytes": 24000,
+		"maxOutputTokens": 4096
+	}
+}

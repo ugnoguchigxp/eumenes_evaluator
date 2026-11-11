@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type {
 	EvaluationRequest,
+	ExcludedCondition,
 	Evidence,
 	Location,
 	ReviewEvidence,
@@ -87,19 +88,26 @@ export function targetEvidence(target: Target): Evidence[] {
 
 export function activeConditions(request: EvaluationRequest) {
 	const { conditions, target } = request;
-	if (conditions.state !== "available")
-		return { entries: [], hasInactiveSources: false };
-	const applicable = conditions.entries.filter(
-		(entry) =>
-			entry.status === "confirmed" &&
-			entry.appliesTo.id === target.id &&
-			entry.appliesTo.version === target.version &&
-			entry.appliesTo.digest === target.digest,
-	);
-	const entries = applicable.filter((entry) =>
-		entry.sources.every((source) => source.active),
-	);
-	return { entries, hasInactiveSources: applicable.length !== entries.length };
+	const excluded: ExcludedCondition[] = [];
+	const entries =
+		conditions.state === "available"
+			? conditions.entries.filter((entry) => {
+					let reason: ExcludedCondition["reason"];
+					if (entry.status !== "confirmed") reason = "not_confirmed";
+					else if (
+						entry.appliesTo.id !== target.id ||
+						entry.appliesTo.version !== target.version ||
+						entry.appliesTo.digest !== target.digest
+					)
+						reason = "target_mismatch";
+					else if (entry.sources.some((source) => !source.active))
+						reason = "source_inactive";
+					else return true;
+					excluded.push({ id: entry.id, reason });
+					return false;
+				})
+			: [];
+	return { entries, excluded };
 }
 
 type JsonValue = Extract<Evidence, { kind: "json" }>["document"];

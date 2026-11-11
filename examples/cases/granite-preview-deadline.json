@@ -1,0 +1,174 @@
+{
+	"contractVersion": 1,
+	"evaluationId": "granite-preview-deadline",
+	"rubric": {
+		"id": "code-correctness",
+		"version": 1
+	},
+	"target": {
+		"kind": "code",
+		"id": "granite-preview-deadline",
+		"version": "2",
+		"base": "c173c7fa0d99152940392f75bf48da094aef5201",
+		"head": "b4e0641369a6bb7e5aa9a9af68acd626cd0780ed",
+		"changes": [
+			{
+				"id": "edit",
+				"path": "src/preview/deadline.ts",
+				"before": {
+					"startLine": 14,
+					"text": "return resolveTimeout(operation, \"service-default\");\n"
+				},
+				"after": {
+					"startLine": 14,
+					"text": "return resolveTimeout(operation, \"interactive\");\n"
+				}
+			}
+		],
+		"digest": "2ddb90f21e89d04d3f8b68a0e5e3c071e10835341ae1a7a65029f8974c03efad",
+		"diffDigest": "0a2dbfdc758aa77760337f3846364265a70b8be9386a9599bf874fbd8c4e9deb"
+	},
+	"scope": [
+		"edit:base",
+		"edit:head"
+	],
+	"evidence": [
+		{
+			"kind": "json",
+			"id": "timeout-profiles-background",
+			"version": "2",
+			"document": {
+				"module": "worker-timeouts",
+				"profiles": {
+					"interactive": {
+						"csvPreview": 3000,
+						"csvExport": 5000
+					},
+					"service-default": {
+						"csvPreview": 3000,
+						"csvExport": 5000
+					}
+				},
+				"appliesTo": "worker jobs and nightly backfills",
+				"fallbackOperation": "workerTask"
+			},
+			"clipped": false
+		},
+		{
+			"kind": "lines",
+			"id": "preview-timeout-resolver",
+			"version": "b4e0641369a6bb7e5aa9a9af68acd626cd0780ed",
+			"path": "src/preview/timeout-resolver.ts",
+			"side": "head",
+			"startLine": 1,
+			"text": "import { previewTimeouts } from \"../../config/preview-timeouts\";\nexport function resolveTimeout(operation: keyof TimeoutProfile, profile: keyof typeof previewTimeouts): number {\n  return previewTimeouts[profile][operation];\n}\n",
+			"clipped": false
+		},
+		{
+			"kind": "json",
+			"id": "preview-endpoints",
+			"version": "2",
+			"document": {
+				"routes": [
+					{
+						"method": "GET",
+						"path": "/reports/csv/preview",
+						"operation": "csvPreview",
+						"handler": "csvPreview"
+					},
+					{
+						"method": "POST",
+						"path": "/reports/csv/export",
+						"operation": "csvExport",
+						"handler": "csvExport"
+					},
+					{
+						"method": "GET",
+						"path": "/reports/schema",
+						"operation": "schema",
+						"handler": "schema"
+					}
+				],
+				"lifecycle": {
+					"preview": "request-scoped",
+					"export": "queues job"
+				}
+			},
+			"clipped": false
+		},
+		{
+			"kind": "json",
+			"id": "preview-proxy-limits",
+			"version": "2",
+			"document": {
+				"component": "edge-proxy",
+				"unit": "ms",
+				"connect": 300,
+				"read": 5000,
+				"write": 5000,
+				"idle": 15000,
+				"maxBodyBytes": 1048576
+			},
+			"clipped": false
+		},
+		{
+			"kind": "json",
+			"id": "preview-timeouts",
+			"version": "2",
+			"document": {
+				"module": "config/preview-timeouts",
+				"unit": "ms",
+				"interactive": {
+					"csvPreview": 3000,
+					"csvExport": 1800,
+					"schema": 400
+				},
+				"service-default": {
+					"csvPreview": 750,
+					"csvExport": 3000,
+					"schema": 800
+				}
+			},
+			"clipped": false
+		},
+		{
+			"kind": "lines",
+			"id": "csv-preview-handler",
+			"version": "b4e0641369a6bb7e5aa9a9af68acd626cd0780ed",
+			"path": "src/preview/csv.ts",
+			"side": "head",
+			"startLine": 33,
+			"text": "import { deadlineFor } from \"./deadline\";\nexport function csvPreview(request: PreviewRequest) {\n  const timeoutMs = deadlineFor(\"csvPreview\");\n  return previewClient.fetchSample(request, { timeoutMs });\n}\n",
+			"clipped": false
+		}
+	],
+	"originalRequest": "CSV プレビューを対話処理用プロファイルに移し、リリース時の動作を確認する。",
+	"conditions": {
+		"state": "available",
+		"revision": "2",
+		"entries": [
+			{
+				"id": "acceptance",
+				"text": "CSV プレビューのバックエンド呼び出しに渡すタイムアウトは 750 ミリ秒である。",
+				"status": "confirmed",
+				"appliesTo": {
+					"id": "granite-preview-deadline",
+					"version": "2",
+					"digest": "2ddb90f21e89d04d3f8b68a0e5e3c071e10835341ae1a7a65029f8974c03efad"
+				},
+				"sources": [
+					{
+						"id": "release-acceptance:preview-deadline",
+						"version": "2",
+						"active": true
+					}
+				]
+			}
+		]
+	},
+	"limits": {
+		"timeoutMs": 120000,
+		"maxInputBytes": 24000,
+		"maxOutputTokens": 4096
+	}
+}

@@ -1,0 +1,32 @@
+{
+	"version": 1,
+	"targetId": "alder-report-delivery",
+	"targetVersion": "2",
+	"targetDigest": "c8451158f3b69ac18a7f42b9459a56664b8ee2ae9c056dee207d43a6c015eae5",
+	"include": [
+		{
+			"kind": "pointer",
+			"pointer": "/publish"
+		}
+	],
+	"conditionIds": [
+		"acceptance"
+	],
+	"evidence": {
+		"allowed": [
+			"archived-report-channels",
+			"channel-retry-policy",
+			"catalog-runtime",
+			"team-library-retention",
+			"report-sinks",
+			"alerts-channels",
+			"report-redaction",
+			"report-channels",
+			"report-channel-preview",
+			"report-audit-events"
+		],
+		"initial": [],
+		"required": []
+	},
+	"focus": "週次レポートの配信先を解決し、閲覧できる範囲を照合する。"
+}

@@ -1,0 +1,196 @@
+{
+	"contractVersion": 1,
+	"evaluationId": "cedar-feed-cursor",
+	"rubric": {
+		"id": "code-correctness",
+		"version": 1
+	},
+	"target": {
+		"kind": "code",
+		"id": "cedar-feed-cursor",
+		"version": "2",
+		"base": "b701820a1969da1d295dfb79b28af06c4d385c3f",
+		"head": "b130d76097ac03c6c62328f7259e3d722189b6d5",
+		"changes": [
+			{
+				"id": "edit",
+				"path": "src/feed/page.ts",
+				"before": {
+					"startLine": 42,
+					"text": "query.orderBy(sortColumns.recentPage);\n"
+				},
+				"after": {
+					"startLine": 42,
+					"text": "query.orderBy(sortColumns.activityPage);\n"
+				}
+			}
+		],
+		"digest": "1d7d0c129cb7df5342f27f8991f60fa324ae4d3df9151161a20eaab952c9aae1",
+		"diffDigest": "aa6889e4783bf73a00f6600ead6ca59d6e295a14a4d5298c46a973ea7a647d19"
+	},
+	"scope": [
+		"edit:base",
+		"edit:head"
+	],
+	"evidence": [
+		{
+			"kind": "lines",
+			"id": "feed-export-order",
+			"version": "b130d76097ac03c6c62328f7259e3d722189b6d5",
+			"path": "src/feed/export.ts",
+			"side": "head",
+			"startLine": 26,
+			"text": "return query.orderBy([{ field: \"createdAt\", direction: \"desc\" }, { field: \"id\", direction: \"asc\" }]);\n",
+			"clipped": false
+		},
+		{
+			"kind": "json",
+			"id": "feed-page-cursor-v1",
+			"version": "2",
+			"document": {
+				"version": 1,
+				"use": "frozen mobile export endpoint",
+				"order": [
+					"createdAt desc",
+					"id asc"
+				],
+				"continuation": "createdAt < t OR (createdAt = t AND id > i)",
+				"issue": "FEED-102"
+			},
+			"clipped": false
+		},
+		{
+			"kind": "lines",
+			"id": "feed-next-page-filter",
+			"version": "b130d76097ac03c6c62328f7259e3d722189b6d5",
+			"path": "src/feed/cursor-v2.ts",
+			"side": "head",
+			"startLine": 17,
+			"text": "return q.where(\"createdAt < ?\", cursor.createdAt)\n  .orWhere(\"(createdAt = ? AND id < ?)\", cursor.createdAt, cursor.id);\n",
+			"clipped": false
+		},
+		{
+			"kind": "json",
+			"id": "feed-schema",
+			"version": "2",
+			"document": {
+				"table": "activity",
+				"fields": {
+					"createdAt": {
+						"type": "timestamp",
+						"resolution": "milliseconds",
+						"nullable": false
+					},
+					"id": {
+						"type": "integer",
+						"unique": true
+					}
+				},
+				"indexes": [
+					{
+						"name": "activity_recent",
+						"columns": [
+							"createdAt",
+							"id"
+						]
+					}
+				]
+			},
+			"clipped": false
+		},
+		{
+			"kind": "json",
+			"id": "feed-sort-columns",
+			"version": "2",
+			"document": {
+				"module": "src/feed/sort-columns.ts",
+				"recentPage": [
+					"createdAt desc",
+					"id desc"
+				],
+				"activityPage": [
+					"createdAt desc",
+					"id desc"
+				],
+				"exportAll": [
+					"createdAt desc",
+					"id asc"
+				]
+			},
+			"clipped": false
+		},
+		{
+			"kind": "json",
+			"id": "feed-pagination-api",
+			"version": "2",
+			"document": {
+				"endpoint": "GET /feed",
+				"pageSize": {
+					"min": 1,
+					"default": 20,
+					"max": 100
+				},
+				"cursorVersion": 2,
+				"staleCursor": "reject",
+				"nextCursor": "last returned row"
+			},
+			"clipped": false
+		},
+		{
+			"kind": "lines",
+			"id": "feed-router",
+			"version": "b130d76097ac03c6c62328f7259e3d722189b6d5",
+			"path": "src/feed/router.ts",
+			"side": "head",
+			"startLine": 9,
+			"text": "router.get(\"/feed\", req => pageFeed(req, cursorV2));\nrouter.get(\"/feed/export\", req => exportFeed(req, cursorV1));\n",
+			"clipped": false
+		},
+		{
+			"kind": "json",
+			"id": "feed-cache-keys",
+			"version": "2",
+			"document": {
+				"cache": "activity-feed",
+				"segmentation": [
+					"accountId",
+					"cursor",
+					"pageSize"
+				],
+				"ttlSeconds": 20,
+				"populateOn": "200 OK",
+				"warmOn": "schedule"
+			},
+			"clipped": false
+		}
+	],
+	"originalRequest": "フィードのソート指定を新しい共通のソート名に移す。",
+	"conditions": {
+		"state": "available",
+		"revision": "2",
+		"entries": [
+			{
+				"id": "acceptance",
+				"text": "同じ作成時刻のイベントを含むデータで、ページを順に取得してもイベントが欠落または重複しない。",
+				"status": "confirmed",
+				"appliesTo": {
+					"id": "cedar-feed-cursor",
+					"version": "2",
+					"digest": "1d7d0c129cb7df5342f27f8991f60fa324ae4d3df9151161a20eaab952c9aae1"
+				},
+				"sources": [
+					{
+						"id": "release-acceptance:feed-cursor",
+						"version": "2",
+						"active": true
+					}
+				]
+			}
+		]
+	},
+	"limits": {
+		"timeoutMs": 120000,
+		"maxInputBytes": 24000,
+		"maxOutputTokens": 4096
+	}
+}

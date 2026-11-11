@@ -1,3 +1,4 @@
+import type { SteeringTarget } from "eumenes-steer";
 import {
 	MAX_INPUT_BYTES,
 	MAX_RESPONSE_BYTES,
@@ -8,10 +9,11 @@ import {
 	type EvaluationResult,
 	type Evidence,
 	type ModelOutput,
-	type ModelRequest,
+	type IssueCode,
 	type ModelResponse,
 	type ReviewEvidence,
 } from "./contracts";
+import { ModelError } from "./http-model";
 import {
 	acquireEvidence,
 	combinedUsage,
@@ -19,8 +21,8 @@ import {
 	investigationSchema,
 	readInvestigation,
 	registerQuestions,
+	standardEvidenceInstructions,
 	reviewDepths,
-	settleQuestions,
 	verificationInstructions,
 	verificationOutputSchema,
 	type ReviewDepth,
@@ -28,7 +30,18 @@ import {
 	type QuestionCheck,
 	type ReviewStage,
 } from "./investigation";
-import { reviewContext, rubricInstructions } from "./rubrics";
+import {
+	inputBudgetExceeded,
+	startModelStages,
+	type ModelDelivery,
+} from "./model-stages";
+import { validateReferences } from "./output";
+import { prepareSteeredVerification } from "./steering";
+import {
+	reviewContext,
+	rubricInstructions,
+	scopedReviewInstructions,
+} from "./rubrics";
 import {
 	evidenceCoordinates,
 	evaluationInputDigest,
@@ -36,17 +49,10 @@ import {
 	ScopeError,
 	type ResolvedScope,
 } from "./scope";
-import {
-	activeConditions,
-	fingerprint,
-	locationExists,
-	targetDigests,
-	targetEvidence,
-} from "./snapshot";
+import { activeConditions, targetDigests, targetEvidence } from "./snapshot";
 
 const outputSchema = modelOutputSchema.toJSONSchema();
 const stagedOutputSchema = verificationOutputSchema.toJSONSchema();
-const inputBudgetExceeded = Symbol("prompt_size_limit");
 
 function unique(values: readonly string[]): boolean {
 	return new Set(values).size === values.length;
@@ -56,7 +62,7 @@ function checkInput(
 	request: EvaluationRequest,
 	primary: Evidence[],
 	materials: Evidence[],
-): string | undefined {
+): IssueCode | undefined {
 	const { target, rubric, conditions, scope } = request;
 	if ((target.kind === "workflow") !== (rubric.id === "workflow-correctness")) {
 		return "rubric_target_mismatch";
@@ -94,64 +100,6 @@ function checkInput(
 	}
 }
 
-function referenceError(
-	output: ModelOutput,
-	materials: Map<string, ReviewEvidence>,
-	scope: Set<string>,
-	primaryIds: Set<string>,
-	conditionIds: string[],
-): string | undefined {
-	const { findings, scopeChecks, conditionChecks } = output;
-	if (
-		!unique(scopeChecks.map((entry) => entry.evidenceId)) ||
-		!unique(conditionChecks.map((entry) => entry.conditionId))
-	)
-		return "duplicate_checks";
-
-	for (const check of scopeChecks) {
-		if (
-			!scope.has(check.evidenceId) ||
-			(check.status === "unverified" && !check.reason)
-		)
-			return "invalid_scope_check";
-	}
-
-	const conditions = new Map(
-		conditionChecks.map((check) => [check.conditionId, check.status]),
-	);
-	const reportedViolations = new Set(
-		findings.map((finding) => finding.conditionId),
-	);
-	for (const check of conditionChecks) {
-		if (
-			!conditionIds.includes(check.conditionId) ||
-			(check.status !== "unverified" && check.evidence.length === 0) ||
-			(check.status === "violated" &&
-				!reportedViolations.has(check.conditionId)) ||
-			!check.evidence.every((location) => locationExists(materials, location))
-		)
-			return "invalid_condition_check";
-	}
-	for (const finding of findings) {
-		if (
-			!scope.has(finding.primary.evidenceId) ||
-			!primaryIds.has(finding.primary.evidenceId)
-		)
-			return "finding_primary_outside_selection";
-		if (
-			finding.conditionId !== null &&
-			conditions.get(finding.conditionId) !== "violated"
-		)
-			return "finding_without_matching_violation";
-		if (
-			![finding.primary, ...finding.evidence].every((location) =>
-				locationExists(materials, location),
-			)
-		)
-			return "finding_location_unavailable";
-	}
-}
-
 function completeCoverage(
 	output: ModelOutput,
 	scopeIds: string[],
@@ -180,7 +128,7 @@ function completeCoverage(
 				scopeChecks.get(evidenceId) ?? {
 					evidenceId,
 					status: "unverified",
-					reason: "モデルから確認結果が返りませんでした",
+					reason: "モデルから有効な確認結果が返りませんでした",
 				}
 			);
 		}),
@@ -191,7 +139,7 @@ function completeCoverage(
 					status: "unverified",
 					reason: unavailableConditions.includes(conditionId)
 						? "対象版に適用できる確定条件を取得できませんでした"
-						: "モデルから確認結果が返りませんでした",
+						: "モデルから有効な確認結果が返りませんでした",
 					evidence: [],
 				},
 		),
@@ -231,6 +179,88 @@ function parseModelOutput(
 	}
 }
 
+function prepareReview(
+	request: EvaluationRequest,
+	target: EvaluationResult["target"],
+	primary: Evidence[],
+	resolved: ResolvedScope | undefined,
+) {
+	const selected = resolved?.primary ?? primary;
+	const materials = [
+		...selected,
+		...(resolved?.initialEvidence ?? request.evidence),
+	];
+	const evidence = new Map(materials.map((item) => [item.id, item]));
+	const conditions = activeConditions(request);
+	const entries = resolved
+		? conditions.entries.filter((item) =>
+				resolved.summary.conditionIds.includes(item.id),
+			)
+		: conditions.entries;
+	const conditionIds = entries.map((entry) => entry.id);
+	const conditionSelection = {
+		applied: conditionIds,
+		excluded: conditions.excluded,
+	};
+	const unavailableConditions = resolved?.unavailableConditions ?? [];
+	const scopeIds = resolved?.scopeIds ?? request.scope;
+	const issues: EvaluationResult["issues"] = [];
+	const cover = (output: ModelOutput) =>
+		completeCoverage(
+			output,
+			scopeIds,
+			evidence,
+			conditionIds,
+			unavailableConditions,
+		);
+	if (
+		request.conditions.state === "unavailable" &&
+		(!resolved || resolved.summary.conditionIds.length > 0)
+	)
+		issues.push({
+			code: "conditions_unavailable",
+			detail: request.conditions.reason,
+		});
+	if (!resolved) {
+		if (conditions.excluded.some(({ reason }) => reason === "source_inactive"))
+			issues.push({ code: "condition_sources_inactive" });
+		for (const { id, reason } of conditions.excluded) {
+			if (reason === "target_mismatch")
+				issues.push({ code: "condition_target_mismatch", detail: id });
+		}
+	}
+	if (unavailableConditions.length)
+		issues.push({
+			code: "required_conditions_unavailable",
+			detail: unavailableConditions.join(", "),
+		});
+	const scope = new Set(scopeIds);
+	const primaryIds = new Set(selected.map((item) => item.id));
+	return {
+		selected,
+		primaryIds,
+		conditionIds,
+		conditionSelection,
+		scope,
+		issues,
+		evidence,
+		cover,
+		packet: {
+			target,
+			scope: scopeIds,
+			primaryEvidenceIds: resolved ? [...primaryIds] : undefined,
+			evidence: materials,
+			focus: resolved?.focus,
+			originalRequest: request.originalRequest,
+			conditions: entries.map(({ id, text, sources }) => ({
+				id,
+				text,
+				sources: sources.map(({ id, version }) => ({ id, version })),
+			})),
+		},
+	};
+}
+
 export async function evaluate(
 	input: unknown,
 	{
@@ -238,12 +268,14 @@ export async function evaluate(
 		signal: parent,
 		selection,
 		expectedScopeDigest,
+		steering,
 		depth = "quick",
 	}: {
 		model: EvaluationModel;
 		signal?: AbortSignal;
 		selection?: unknown;
 		expectedScopeDigest?: string;
+		steering?: SteeringTarget;
 		depth?: ReviewDepth;
 	},
 ): Promise<EvaluationResult> {
@@ -253,6 +285,8 @@ export async function evaluate(
 	const target = request?.target;
 	const stages: ReviewStage[] = [];
 	let questions: ReviewQuestion[] = [];
+	let rejected: EvaluationResult["rejected"] = [];
+	let steeringReceipt: EvaluationResult["steering"];
 	const baseline = {
 		contractVersion: 1 as const,
 		evaluationId: request?.evaluationId ?? null,
@@ -267,6 +301,10 @@ export async function evaluate(
 			: null,
 		inputDigest: null as string | null,
 		scopeSelection: undefined as EvaluationResult["scopeSelection"],
+		conditionSelection: {
+			applied: [],
+			excluded: [],
+		} as EvaluationResult["conditionSelection"],
 		conditions: request?.conditions.state ?? null,
 		conditionRevision:
 			request?.conditions.state === "available"
@@ -288,9 +326,11 @@ export async function evaluate(
 			...output,
 			status,
 			issues,
+			rejected,
 			durationMs: Math.round(performance.now() - started),
 			model: response?.model ?? stages.findLast((stage) => stage.model)?.model,
 			usage: depth === "quick" ? response?.usage : combinedUsage(stages),
+			...(steeringReceipt ? { steering: steeringReceipt } : {}),
 			...(depth !== "quick" ? { review: { depth, stages, questions } } : {}),
 		};
 	}
@@ -315,6 +355,8 @@ export async function evaluate(
 	if (parent?.aborted) return finish("cancelled", [{ code: "cancelled" }]);
 	if (!reviewDepths.includes(depth))
 		return finish("failed", [{ code: "invalid_review_depth" }]);
+	if (steering && depth !== "standard")
+		return finish("failed", [{ code: "steering_requires_standard" }]);
 	if (depth !== "quick" && selection === undefined)
 		return finish("failed", [{ code: "scope_required_for_depth" }]);
 	if (expectedScopeDigest !== undefined && selection === undefined)
@@ -336,47 +378,20 @@ export async function evaluate(
 			return finish("failed", [{ code: "scope_preview_mismatch" }]);
 	}
 
-	const selected = resolved?.primary ?? primary;
-	const materials = [
-		...selected,
-		...(resolved?.initialEvidence ?? request.evidence),
-	];
-	const evidence = new Map(materials.map((item) => [item.id, item]));
-	const conditions = activeConditions(request);
-	const entries = resolved
-		? conditions.entries.filter((item) =>
-				resolved.summary.conditionIds.includes(item.id),
-			)
-		: conditions.entries;
-	const conditionIds = entries.map((entry) => entry.id);
-	const unavailableConditions = resolved?.unavailableConditions ?? [];
-	const scopeIds = resolved?.scopeIds ?? request.scope;
-	const issues: EvaluationResult["issues"] = [];
+	const {
+		selected,
+		primaryIds,
+		conditionIds,
+		conditionSelection,
+		scope,
+		issues,
+		evidence,
+		packet,
+		cover,
+	} = prepareReview(request, baseline.target, primary, resolved);
+	baseline.conditionSelection = conditionSelection;
 	const empty = () =>
-		completeCoverage(
-			{ findings: [], scopeChecks: [], conditionChecks: [] },
-			scopeIds,
-			evidence,
-			conditionIds,
-			unavailableConditions,
-		);
-	if (
-		request.conditions.state === "unavailable" &&
-		(!resolved || resolved.summary.conditionIds.length > 0)
-	)
-		issues.push({
-			code: "conditions_unavailable",
-			detail: request.conditions.reason,
-		});
-	if (!resolved && conditions.hasInactiveSources)
-		issues.push({ code: "condition_sources_inactive" });
-	if (unavailableConditions.length)
-		issues.push({
-			code: "required_conditions_unavailable",
-			detail: unavailableConditions.join(", "),
-		});
-	const scope = new Set(scopeIds);
-	const primaryIds = new Set(selected.map((item) => item.id));
+		cover({ findings: [], scopeChecks: [], conditionChecks: [] });
 	if (!selected.some((item) => scope.has(item.id))) {
 		return finish(
 			"incomplete",
@@ -387,22 +402,7 @@ export async function evaluate(
 
 	const system =
 		rubricInstructions(request.rubric) +
-		(resolved
-			? "\nfindings の primary には primaryEvidenceIds にある ID を指定してください。scope に含まれていても補足資料は evidence に引用してください。pointerRoot がある資料の位置は、その値を先頭に持つ元文書上の絶対 JSON Pointer で返してください。"
-			: "");
-	const packet = {
-		target: baseline.target,
-		scope: scopeIds,
-		primaryEvidenceIds: resolved ? [...primaryIds] : undefined,
-		evidence: materials,
-		focus: resolved?.focus,
-		originalRequest: request.originalRequest,
-		conditions: entries.map(({ id, text, sources }) => ({
-			id,
-			text,
-			sources: sources.map(({ id, version }) => ({ id, version })),
-		})),
-	};
+		(resolved ? "\n" + scopedReviewInstructions : "");
 	const { limits } = request;
 	const budgetMs =
 		depth === "quick"
@@ -417,82 +417,12 @@ export async function evaluate(
 			empty(),
 		);
 
-	const controller = new AbortController();
-	const cancel = () => controller.abort("cancelled");
-	function checkDeadline() {
-		if (performance.now() >= deadline) {
-			controller.abort("deadline_exceeded");
-		}
-		controller.signal.throwIfAborted();
-	}
-	parent?.addEventListener("abort", cancel, { once: true });
-	let rejectAbort: (reason: unknown) => void;
-	const aborted = new Promise<never>((_resolve, reject) => {
-		rejectAbort = reject;
-	});
-	const interrupt = () => rejectAbort(controller.signal.reason);
-	// The first stage can fail before any model call is started.
-	void aborted.catch(() => {});
-	controller.signal.addEventListener("abort", interrupt, { once: true });
-	async function complete(
-		phase: ReviewStage["phase"],
-		instructions: string,
-		input: object,
-		schema: ModelRequest["outputSchema"],
-	) {
-		checkDeadline();
-		const prompt = JSON.stringify(input);
-		if (
-			Buffer.byteLength(instructions) + Buffer.byteLength(prompt) >
-			limits.maxInputBytes
-		)
-			throw inputBudgetExceeded;
-		const invocation = {
-			system: instructions,
-			prompt,
-			outputSchema: schema,
-			maxOutputTokens: limits.maxOutputTokens,
-		};
-		const stage: ReviewStage = {
-			phase,
-			status: "failed",
-			inputDigest: fingerprint(invocation),
-			durationMs: 0,
-		};
-		stages.push(stage);
-		const start = performance.now();
-		const stageDeadline = Math.min(deadline, start + limits.timeoutMs);
-		const timer = setTimeout(
-			() => controller.abort("deadline_exceeded"),
-			Math.ceil(stageDeadline - start),
-		);
-		try {
-			const response = await Promise.race([
-				aborted,
-				Promise.resolve().then(() => {
-					checkDeadline();
-					return model.complete(invocation, controller.signal);
-				}),
-			]);
-			stage.model = response.model;
-			stage.usage = response.usage;
-			if (performance.now() >= stageDeadline)
-				controller.abort("deadline_exceeded");
-			checkDeadline();
-			return { response, stage };
-		} finally {
-			clearTimeout(timer);
-			stage.durationMs = Math.round(performance.now() - start);
-			if (controller.signal.aborted)
-				stage.status =
-					controller.signal.reason === "deadline_exceeded"
-						? "expired"
-						: "cancelled";
-		}
-	}
+	const runner = startModelStages(model, parent, limits, deadline, stages);
+	const { complete, checkDeadline } = runner;
 	try {
-		let verification = packet;
+		let verification: object = packet;
 		let instructions = system;
+		let steered: ReturnType<typeof prepareSteeredVerification>;
 		if (depth !== "quick") {
 			const catalog = new Map(
 				(depth === "standard" ? resolved!.catalog : []).map((item) => [
@@ -505,9 +435,13 @@ export async function evaluate(
 				.map(evidenceCoordinates);
 			const first = await complete(
 				"investigation",
-				[...reviewContext(request.rubric), investigationInstructions].join(
-					"\n",
-				),
+				[
+					...reviewContext(request.rubric),
+					investigationInstructions,
+					...(depth === "standard"
+						? [standardEvidenceInstructions.investigation]
+						: []),
+				].join("\n"),
 				{ ...packet, evidenceCatalog },
 				investigationSchema,
 			);
@@ -520,17 +454,26 @@ export async function evaluate(
 					empty(),
 					first.response,
 				);
-			const acquired = acquireEvidence(plan, catalog, evidence);
+			const acquired = acquireEvidence(
+				plan,
+				catalog,
+				evidence,
+				depth === "standard" ? resolved!.summary.requiredEvidenceIds : [],
+			);
 			questions = registerQuestions(plan.openQuestions);
 			first.stage.status = "completed";
 			first.stage.requested = acquired.requested;
 			first.stage.questions = plan.requests;
 			first.stage.acquired = acquired.acquired.map((item) => item.id);
+			if (depth === "standard")
+				first.stage.requiredAcquired = acquired.requiredAcquired;
 			first.stage.unavailable = acquired.unavailable;
 			for (const item of acquired.acquired) evidence.set(item.id, item);
 			if (acquired.unavailable.length)
 				issues.push({ code: "investigation_evidence_unavailable" });
 			instructions += "\n" + verificationInstructions;
+			if (depth === "standard")
+				instructions += "\n" + standardEvidenceInstructions.verification;
 			const finalPacket = {
 				...packet,
 				evidence: [...evidence.values()],
@@ -545,13 +488,33 @@ export async function evaluate(
 				},
 			};
 			verification = finalPacket;
+			if (steering) {
+				steered = prepareSteeredVerification(
+					steering,
+					catalog,
+					evidence,
+					instructions,
+					finalPacket,
+					limits.maxInputBytes,
+				);
+				if (steered) {
+					verification = steered.packet;
+					instructions = steered.instructions;
+				}
+			}
 		}
+		const delivery: ModelDelivery | undefined = steered
+			? { dispatched: false, responded: false }
+			: undefined;
 		const { response, stage } = await complete(
 			"verification",
 			instructions,
 			verification,
 			depth === "quick" ? outputSchema : stagedOutputSchema,
-		);
+			delivery,
+		).finally(() => {
+			if (delivery && steered) steeringReceipt = steered.settle(delivery);
+		});
 		const output =
 			typeof response.text === "string" &&
 			Buffer.byteLength(response.text) <= MAX_RESPONSE_BYTES
@@ -565,53 +528,23 @@ export async function evaluate(
 				empty(),
 				response,
 			);
-		const referenceIssue = referenceError(
+		const validated = validateReferences(
 			output.output,
+			output.questionChecks,
+			questions,
 			evidence,
 			scope,
 			primaryIds,
 			conditionIds,
 		);
 		checkDeadline();
-		if (referenceIssue) {
-			return finish(
-				"failed",
-				[
-					...issues,
-					{ code: "invalid_model_references", detail: referenceIssue },
-				],
-				empty(),
-				response,
-			);
-		}
-		const reviewedQuestions = settleQuestions(
-			questions,
-			output.questionChecks,
-			evidence,
-		);
-		if (!reviewedQuestions)
-			return finish(
-				"failed",
-				[
-					...issues,
-					{
-						code: "invalid_model_references",
-						detail: "invalid_question_check",
-					},
-				],
-				empty(),
-				response,
-			);
-		questions = reviewedQuestions;
+		questions = validated.questions;
+		rejected = validated.rejected;
+		if (rejected.length)
+			issues.push({ code: "model_output_partially_rejected" });
 		if (questions.some((item) => item.status === "unverified"))
 			issues.push({ code: "investigation_questions_unverified" });
-		const checked = completeCoverage(
-			output.output,
-			scopeIds,
-			evidence,
-			conditionIds,
-			unavailableConditions,
-		);
+		const checked = cover(validated.output);
 		stage.status = "completed";
 		if (checked.scopeChecks.some((check) => check.status === "unverified"))
 			issues.push({ code: "scope_unverified" });
@@ -624,13 +557,13 @@ export async function evaluate(
 			response,
 		);
 	} catch (error) {
-		if (controller.signal.reason === "deadline_exceeded")
+		if (runner.signal.reason === "deadline_exceeded")
 			return finish(
 				"expired",
 				[...issues, { code: "deadline_exceeded" }],
 				empty(),
 			);
-		if (controller.signal.aborted)
+		if (runner.signal.aborted)
 			return finish("cancelled", [...issues, { code: "cancelled" }], empty());
 		if (error === inputBudgetExceeded)
 			return finish(
@@ -640,11 +573,16 @@ export async function evaluate(
 			);
 		return finish(
 			"failed",
-			[...issues, { code: "model_request_failed" }],
+			[
+				...issues,
+				{
+					code: "model_request_failed",
+					...(error instanceof ModelError ? { detail: error.kind } : {}),
+				},
+			],
 			empty(),
 		);
 	} finally {
-		parent?.removeEventListener("abort", cancel);
-		controller.signal.removeEventListener("abort", interrupt);
+		runner.close();
 	}
 }

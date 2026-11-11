@@ -1,0 +1,28 @@
+{
+	"version": 1,
+	"targetId": "maple-preview-deadline",
+	"targetVersion": "2",
+	"targetDigest": "8dbff5152f0684151944d5b016cb0fab7a1a403a407a454a5ac797815fe09bbf",
+	"include": [
+		{
+			"kind": "file",
+			"path": "src/preview/deadline.ts"
+		}
+	],
+	"conditionIds": [
+		"acceptance"
+	],
+	"evidence": {
+		"allowed": [
+			"timeout-profiles-background",
+			"preview-timeout-resolver",
+			"preview-endpoints",
+			"preview-proxy-limits",
+			"preview-timeouts",
+			"csv-preview-handler"
+		],
+		"initial": [],
+		"required": []
+	},
+	"focus": "変更後の CSV プレビューが使用する実効タイムアウトを確認する。"
+}

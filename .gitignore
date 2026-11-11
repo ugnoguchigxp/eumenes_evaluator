@@ -2,5 +2,6 @@ node_modules/
 .env
 .env.*
 *.tgz
+!vendor/steer/eumenes-steer-0.1.0-1ca04b8bee9b.tgz
 
 verification-runs/

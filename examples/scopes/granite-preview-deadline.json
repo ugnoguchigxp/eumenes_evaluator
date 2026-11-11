@@ -1,0 +1,28 @@
+{
+	"version": 1,
+	"targetId": "granite-preview-deadline",
+	"targetVersion": "2",
+	"targetDigest": "2ddb90f21e89d04d3f8b68a0e5e3c071e10835341ae1a7a65029f8974c03efad",
+	"include": [
+		{
+			"kind": "file",
+			"path": "src/preview/deadline.ts"
+		}
+	],
+	"conditionIds": [
+		"acceptance"
+	],
+	"evidence": {
+		"allowed": [
+			"timeout-profiles-background",
+			"preview-timeout-resolver",
+			"preview-endpoints",
+			"preview-proxy-limits",
+			"preview-timeouts",
+			"csv-preview-handler"
+		],
+		"initial": [],
+		"required": []
+	},
+	"focus": "変更後の CSV プレビューが使用する実効タイムアウトを確認する。"
+}

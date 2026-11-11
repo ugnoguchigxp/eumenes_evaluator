@@ -1,0 +1,45 @@
+{
+	"contractVersion": 1,
+	"evaluationId": "counter-reset",
+	"rubric": {
+		"id": "code-correctness",
+		"version": 1
+	},
+	"target": {
+		"kind": "code",
+		"id": "counter-reset",
+		"version": "2",
+		"base": "3e72afd12a3f49ee18f0ff227c5cf4ac2b53ed20",
+		"head": "78aaa91b7a409bf4ab89a9a7162f821b813221d6",
+		"changes": [
+			{
+				"id": "edit-1",
+				"path": "src/counters.ts",
+				"before": {
+					"startLine": 10,
+					"text": "if (current < previous) return current;\nreturn current - previous;\n"
+				},
+				"after": {
+					"startLine": 10,
+					"text": "return current - previous;\n"
+				}
+			}
+		],
+		"digest": "e7a35a4dabdd3d37ee0b09ab952b7b35ba1ec2c61b40209a3fa0be9300437a4e",
+		"diffDigest": "c36514e4859ea6a824c7472fce5853586a814a43bdeb94ec93d69b2e0eff2654"
+	},
+	"scope": [
+		"edit-1:base",
+		"edit-1:head"
+	],
+	"evidence": [],
+	"originalRequest": "稼働カウンタの差分算出を整理する。",
+	"conditions": {
+		"state": "none"
+	},
+	"limits": {
+		"timeoutMs": 120000,
+		"maxInputBytes": 24000,
+		"maxOutputTokens": 4096
+	}
+}

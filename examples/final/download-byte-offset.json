@@ -1,0 +1,59 @@
+{
+	"contractVersion": 1,
+	"evaluationId": "download-byte-offset",
+	"rubric": {
+		"id": "code-correctness",
+		"version": 1
+	},
+	"target": {
+		"kind": "code",
+		"id": "download-byte-offset",
+		"version": "2",
+		"base": "16e96153b827ad086ba3480bdea4edf1f1dd29a9",
+		"head": "8bcadb060aebe5f4beee84c8c01b3ff4d664f1e3",
+		"changes": [
+			{
+				"id": "edit-1",
+				"path": "src/chunks.ts",
+				"before": {
+					"startLine": 10,
+					"text": "const last = Math.min(offset + length - 1, size - 1);\nreturn { first: offset, last };\n"
+				},
+				"after": {
+					"startLine": 10,
+					"text": "const last = Math.min(offset + length, size - 1);\nreturn { first: offset, last };\n"
+				}
+			},
+			{
+				"id": "edit-2",
+				"path": "src/object-reader.ts",
+				"before": {
+					"startLine": 10,
+					"text": "return readRange(objectKey, first, last + 1);\n"
+				},
+				"after": {
+					"startLine": 10,
+					"text": "const endExclusive = last + 1;\nreturn readRange(objectKey, first, endExclusive);\n"
+				}
+			}
+		],
+		"digest": "7b6dff9018b5e8777f2cf880a215b787fb3d240021e47f0c0e7b4e4d6edd5d0a",
+		"diffDigest": "38051cff35ee57802b0c48bfefd47bd558e93058a512cb92363fcea519fb8ebb"
+	},
+	"scope": [
+		"edit-1:base",
+		"edit-1:head",
+		"edit-2:base",
+		"edit-2:head"
+	],
+	"evidence": [],
+	"originalRequest": "分割ダウンロードの区間計算を簡潔にする。",
+	"conditions": {
+		"state": "none"
+	},
+	"limits": {
+		"timeoutMs": 120000,
+		"maxInputBytes": 24000,
+		"maxOutputTokens": 4096
+	}
+}

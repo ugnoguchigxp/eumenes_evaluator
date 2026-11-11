@@ -1,4 +1,5 @@
 import { parseArgs } from "node:util";
+import { openSteeringConsole } from "./bench/steering-console";
 import {
 	MAX_INPUT_BYTES,
 	MAX_RESPONSE_BYTES,
@@ -12,16 +13,47 @@ import { readText } from "./read-text";
 import {
 	comparisonArms,
 	comparisonRequest,
+	comparisonSelection,
 	type ComparisonArm,
 } from "./rubrics";
+import { scopeSelectionSchema } from "./scope";
 
 const help = [
 	"bun run quick <request.json|-> --fixture <response.json> [--arm A|B|C|D]",
 	"bun run quick <request.json|-> --openai [--arm A|B|C|D]",
+	"--openai --codex-sdk-low で Codex SDK の Luna (low) を使います。",
 	"bun run quick <request.json|-> --endpoint <chat-completions-url> --model <model> [--arm A|B|C|D]",
 	"--scope <scope.json> --preview で確認し、実行時は --scope と --expected-scope-digest <digest> を指定します。",
 	"--scope と --depth standard で追加資料を取得します。--depth recheck は同じ資料で二回確認します。",
+	"二段階の固定応答は --fixture <調査.json> --fixture <最終判定.json> の順に指定します。",
+	"--steer は Standard の調査中に、許可済み資料の ID を標準入力から一行ずつ受け付けます。",
 ].join("\n");
+
+async function readInput(file: string, limit: number, stdin = false) {
+	try {
+		return await readText(
+			stdin ? Bun.stdin.stream() : Bun.file(file).stream(),
+			limit,
+		);
+	} catch {
+		throw new Error(
+			stdin
+				? "標準入力を読み込めませんでした"
+				: `ファイルを読み込めませんでした (${file})`,
+		);
+	}
+}
+
+async function readJsonInput(file: string, stdin = false): Promise<unknown> {
+	const text = await readInput(file, MAX_INPUT_BYTES, stdin);
+	try {
+		return JSON.parse(text);
+	} catch {
+		throw new Error(
+			`JSON を読み取れませんでした (${stdin ? "標準入力" : file})`,
+		);
+	}
+}
 
 async function main() {
 	const { positionals, values } = parseArgs({
@@ -29,8 +61,10 @@ async function main() {
 		allowPositionals: true,
 		options: {
 			help: { type: "boolean" },
-			fixture: { type: "string" },
+			fixture: { type: "string", multiple: true },
 			openai: { type: "boolean" },
+			"codex-sdk-low": { type: "boolean" },
+			steer: { type: "boolean" },
 			endpoint: { type: "string" },
 			model: { type: "string" },
 			arm: { type: "string" },
@@ -52,26 +86,26 @@ async function main() {
 		throw new Error("--depth は quick、recheck、standard のいずれかです");
 	if (arm && !comparisonArms.includes(arm))
 		throw new Error("比較条件は A、B、C、D のいずれかです");
-	const text = await readText(
-		file === "-" ? Bun.stdin.stream() : Bun.file(file).stream(),
-		MAX_INPUT_BYTES,
-	);
-	let input: unknown;
-	try {
-		input = JSON.parse(text);
-	} catch {
-		input = null;
-	}
+	if (values["codex-sdk-low"] && !values.openai)
+		throw new Error("--codex-sdk-low には --openai が必要です");
+	if (
+		values.steer &&
+		(file === "-" || depth !== "standard" || !values.scope || values.preview)
+	)
+		throw new Error(
+			"--steer にはファイルの依頼、--depth standard、--scope が必要です",
+		);
+	let input = await readJsonInput(file, file === "-");
 	if (arm) {
 		const parsed = requestSchema.safeParse(input);
 		if (parsed.success) input = comparisonRequest(parsed.data, arm);
 	}
-	const selection: unknown =
-		values.scope === undefined
-			? undefined
-			: JSON.parse(
-					await readText(Bun.file(values.scope).stream(), MAX_INPUT_BYTES),
-				);
+	let selection: unknown =
+		values.scope === undefined ? undefined : await readJsonInput(values.scope);
+	if (arm && selection !== undefined) {
+		const parsed = scopeSelectionSchema.safeParse(selection);
+		if (parsed.success) selection = comparisonSelection(parsed.data, arm);
+	}
 	if (values.preview) {
 		if (selection === undefined)
 			throw new Error("--preview には --scope が必要です");
@@ -94,15 +128,24 @@ async function main() {
 			throw new Error(
 				"--openai は GPT-6 Luna 専用です。--fixture、--endpoint、--model との併用はできません",
 			);
-		model = openaiLunaModel();
+		model = values["codex-sdk-low"]
+			? (await import("./bench/codex-sdk")).codexSdkLunaModel({
+					reasoningEffort: "low",
+				}).model
+			: openaiLunaModel();
 	} else if (values.fixture && !values.endpoint && !values.model) {
-		const response = await readText(
-			Bun.file(values.fixture).stream(),
-			MAX_RESPONSE_BYTES,
+		const fixtures = values.fixture;
+		if (fixtures.length !== (depth === "quick" ? 1 : 2))
+			throw new Error(
+				"--fixture は Quick で1回、二段階の評価では調査・最終判定の順に2回指定してください",
+			);
+		const responses = await Promise.all(
+			fixtures.map((path) => readInput(path, MAX_RESPONSE_BYTES)),
 		);
+		let next = 0;
 		model = {
 			async complete() {
-				return { text: response, model: "fixture" };
+				return { text: responses[next++]!, model: "fixture" };
 			},
 		};
 	} else if (!values.fixture && values.endpoint && values.model) {
@@ -112,6 +155,11 @@ async function main() {
 	}
 
 	const controller = new AbortController();
+	const preview = values.steer ? previewScope(input, selection) : undefined;
+	const steering =
+		preview && preview.digest === expectedScopeDigest
+			? openSteeringConsole(preview)
+			: undefined;
 	const cancel = () => controller.abort();
 	process.on("SIGINT", cancel);
 	process.on("SIGTERM", cancel);
@@ -122,6 +170,7 @@ async function main() {
 			selection,
 			expectedScopeDigest,
 			depth,
+			steering: steering?.target,
 		});
 		console.log(JSON.stringify(arm ? { arm, ...result } : result, null, 2));
 		process.exitCode =
@@ -131,6 +180,7 @@ async function main() {
 					? 2
 					: 1;
 	} finally {
+		steering?.close();
 		process.off("SIGINT", cancel);
 		process.off("SIGTERM", cancel);
 	}

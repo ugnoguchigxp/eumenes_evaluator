@@ -1,0 +1,473 @@
+{
+	"version": 1,
+	"cases": [
+		{
+			"id": "snapshot-last-record",
+			"group": "code-regression",
+			"request": "final/snapshot-last-record.json",
+			"arms": [
+				"A",
+				"B",
+				"C",
+				"D"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {},
+				"defects": [
+					{
+						"id": "snapshot-last-record-defect",
+						"description": "末尾のレコードを読み飛ばす。1件の入力は空になる。",
+						"severity": "medium",
+						"evidence": {
+							"evidenceId": "edit-1:head",
+							"startLine": 10,
+							"endLine": 10,
+							"pointer": null
+						}
+					}
+				]
+			},
+			"notes": "末尾のレコードを読み飛ばす。1件の入力は空になる。"
+		},
+		{
+			"id": "decimal-zero-invoice",
+			"group": "code-regression",
+			"request": "final/decimal-zero-invoice.json",
+			"arms": [
+				"A",
+				"B",
+				"C",
+				"D"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {},
+				"defects": [
+					{
+						"id": "decimal-zero-invoice-defect",
+						"description": "無料トライアルの明示的な0円を偽として扱い、1200円を請求する。",
+						"severity": "high",
+						"evidence": {
+							"evidenceId": "edit-1:head",
+							"startLine": 10,
+							"endLine": 10,
+							"pointer": null
+						}
+					}
+				]
+			},
+			"notes": "無料トライアルの明示的な0円を偽として扱い、1200円を請求する。"
+		},
+		{
+			"id": "download-byte-offset",
+			"group": "code-regression",
+			"request": "final/download-byte-offset.json",
+			"arms": [
+				"A",
+				"B",
+				"C",
+				"D"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {},
+				"defects": [
+					{
+						"id": "download-byte-offset-defect",
+						"description": "途中の区間では指定長より1バイト多く読み、連続した区間に重複が生じる。",
+						"severity": "medium",
+						"evidence": {
+							"evidenceId": "edit-1:head",
+							"startLine": 10,
+							"endLine": 10,
+							"pointer": null
+						}
+					}
+				]
+			},
+			"notes": "途中の区間では指定長より1バイト多く読み、連続した区間に重複が生じる。"
+		},
+		{
+			"id": "counter-reset",
+			"group": "code-regression",
+			"request": "final/counter-reset.json",
+			"arms": [
+				"A",
+				"B",
+				"C",
+				"D"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {},
+				"defects": [
+					{
+						"id": "counter-reset-defect",
+						"description": "カウンタが再起動で10から2に戻ると-8を返す。旧処理はリセット後の2を計上していた。",
+						"severity": "medium",
+						"evidence": {
+							"evidenceId": "edit-1:head",
+							"startLine": 10,
+							"endLine": 10,
+							"pointer": null
+						}
+					}
+				]
+			},
+			"notes": "カウンタが再起動で10から2に戻ると-8を返す。旧処理はリセット後の2を計上していた。"
+		},
+		{
+			"id": "queue-state-merge",
+			"group": "code-regression",
+			"request": "final/queue-state-merge.json",
+			"arms": [
+				"A",
+				"B",
+				"C",
+				"D"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {},
+				"defects": [
+					{
+						"id": "queue-state-merge-defect",
+						"description": "保存済みのカーソルと完了IDを既定値で上書きし、既に終えた作業を先頭から実行する。",
+						"severity": "high",
+						"evidence": {
+							"evidenceId": "edit-1:head",
+							"startLine": 10,
+							"endLine": 10,
+							"pointer": null
+						}
+					}
+				]
+			},
+			"notes": "保存済みのカーソルと完了IDを既定値で上書きし、既に終えた作業を先頭から実行する。"
+		},
+		{
+			"id": "inventory-denominator",
+			"group": "code-regression",
+			"request": "final/inventory-denominator.json",
+			"arms": [
+				"A",
+				"B",
+				"C",
+				"D"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {},
+				"defects": [
+					{
+						"id": "inventory-denominator-defect",
+						"description": "容量が0の区画で Infinity または NaN を返す。空区画を0とする既存の挙動が壊れる。",
+						"severity": "medium",
+						"evidence": {
+							"evidenceId": "edit-1:head",
+							"startLine": 10,
+							"endLine": 10,
+							"pointer": null
+						}
+					}
+				]
+			},
+			"notes": "容量が0の区画で Infinity または NaN を返す。空区画を0とする既存の挙動が壊れる。"
+		},
+		{
+			"id": "digest-friday",
+			"group": "condition-regression",
+			"request": "final/digest-friday.json",
+			"arms": [
+				"A",
+				"B",
+				"C",
+				"D"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {
+					"acceptance": "violated"
+				},
+				"defects": [
+					{
+						"id": "digest-friday-defect",
+						"description": "訂正済みの木曜を選び、現行条件の金曜9時に配信されない。",
+						"severity": "medium",
+						"evidence": {
+							"evidenceId": "edit-1:head",
+							"startLine": 10,
+							"endLine": 10,
+							"pointer": null
+						}
+					}
+				]
+			},
+			"notes": "訂正済みの木曜を選び、現行条件の金曜9時に配信されない。"
+		},
+		{
+			"id": "invoice-default-region",
+			"group": "condition-regression",
+			"request": "final/invoice-default-region.json",
+			"arms": [
+				"A",
+				"B",
+				"C",
+				"D"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {
+					"acceptance": "violated"
+				},
+				"defects": [
+					{
+						"id": "invoice-default-region-defect",
+						"description": "未指定時に撤回済み条件の jp-west が使われ、現行条件の jp-east に出力されない。",
+						"severity": "medium",
+						"evidence": {
+							"evidenceId": "edit-1:head",
+							"startLine": 10,
+							"endLine": 10,
+							"pointer": null
+						}
+					}
+				]
+			},
+			"notes": "未指定時に撤回済み条件の jp-west が使われ、現行条件の jp-east に出力されない。"
+		},
+		{
+			"id": "chart-category-cap",
+			"group": "condition-regression",
+			"request": "final/chart-category-cap.json",
+			"arms": [
+				"A",
+				"B",
+				"C",
+				"D"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {
+					"acceptance": "violated"
+				},
+				"defects": [
+					{
+						"id": "chart-category-cap-defect",
+						"description": "13件以上の入力で12件を超えて表示する。",
+						"severity": "medium",
+						"evidence": {
+							"evidenceId": "edit-1:head",
+							"startLine": 10,
+							"endLine": 10,
+							"pointer": null
+						}
+					}
+				]
+			},
+			"notes": "13件以上の入力で12件を超えて表示する。"
+		},
+		{
+			"id": "digest-sort-key",
+			"group": "condition-regression",
+			"request": "final/digest-sort-key.json",
+			"arms": [
+				"A",
+				"B",
+				"C",
+				"D"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {
+					"acceptance": "violated"
+				},
+				"defects": [
+					{
+						"id": "digest-sort-key-defect",
+						"description": "更新時刻の降順に切り替わり、名前の昇順の条件が崩れる。",
+						"severity": "medium",
+						"evidence": {
+							"evidenceId": "edit-1:head",
+							"startLine": 10,
+							"endLine": 10,
+							"pointer": null
+						}
+					}
+				]
+			},
+			"notes": "更新時刻の降順に切り替わり、名前の昇順の条件が崩れる。"
+		},
+		{
+			"id": "export-column-identifier",
+			"group": "condition-regression",
+			"request": "final/export-column-identifier.json",
+			"arms": [
+				"A",
+				"B",
+				"C",
+				"D"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {
+					"acceptance": "violated"
+				},
+				"defects": [
+					{
+						"id": "export-column-identifier-defect",
+						"description": "許可されていない externalRef を出力するため、列数と順序が受け入れ条件に違反する。",
+						"severity": "medium",
+						"evidence": {
+							"evidenceId": "edit-1:head",
+							"startLine": 10,
+							"endLine": 10,
+							"pointer": null
+						}
+					}
+				]
+			},
+			"notes": "許可されていない externalRef を出力するため、列数と順序が受け入れ条件に違反する。"
+		},
+		{
+			"id": "quota-warning-level",
+			"group": "condition-regression",
+			"request": "final/quota-warning-level.json",
+			"arms": [
+				"A",
+				"B",
+				"C",
+				"D"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {
+					"acceptance": "violated"
+				},
+				"defects": [
+					{
+						"id": "quota-warning-level-defect",
+						"description": "80%以上85%未満が警告されない。",
+						"severity": "medium",
+						"evidence": {
+							"evidenceId": "edit-1:head",
+							"startLine": 10,
+							"endLine": 10,
+							"pointer": null
+						}
+					}
+				]
+			},
+			"notes": "80%以上85%未満が警告されない。"
+		},
+		{
+			"id": "report-monthly-duration",
+			"group": "normal-change",
+			"request": "final/report-monthly-duration.json",
+			"arms": [
+				"A",
+				"B",
+				"C",
+				"D"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {
+					"acceptance": "satisfied"
+				},
+				"defects": []
+			},
+			"notes": "訂正前の3,000msは採点条件にしない。"
+		},
+		{
+			"id": "label-local-rename",
+			"group": "normal-change",
+			"request": "final/label-local-rename.json",
+			"arms": [
+				"A",
+				"B",
+				"C",
+				"D"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {},
+				"defects": []
+			},
+			"notes": "互換用 displayName は撤回済み。変数名だけが変わり、出力は従来どおり。"
+		},
+		{
+			"id": "catalog-object-key",
+			"group": "normal-change",
+			"request": "final/catalog-object-key.json",
+			"arms": [
+				"A",
+				"B",
+				"C",
+				"D"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {},
+				"defects": []
+			},
+			"notes": "固定されたプロジェクトの読出し・書込み双方で改名しており、キー文字列は同じ。"
+		},
+		{
+			"id": "billing-rounding-explicit",
+			"group": "normal-change",
+			"request": "final/billing-rounding-explicit.json",
+			"arms": [
+				"A",
+				"B",
+				"C",
+				"D"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {
+					"acceptance": "satisfied"
+				},
+				"defects": []
+			},
+			"notes": "変更前後で評価対象の契約を維持する。"
+		},
+		{
+			"id": "notification-preference",
+			"group": "normal-change",
+			"request": "final/notification-preference.json",
+			"arms": [
+				"A",
+				"B",
+				"C",
+				"D"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {},
+				"defects": []
+			},
+			"notes": "settings は固定スキーマから復元した通常のオブジェクト。無効時の挙動とキュー引数を保つ。"
+		},
+		{
+			"id": "filter-numeric-units",
+			"group": "normal-change",
+			"request": "final/filter-numeric-units.json",
+			"arms": [
+				"A",
+				"B",
+				"C",
+				"D"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {
+					"acceptance": "satisfied"
+				},
+				"defects": []
+			},
+			"notes": "変更前後で評価対象の契約を維持する。"
+		}
+	]
+}

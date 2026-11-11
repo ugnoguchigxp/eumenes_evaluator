@@ -1,0 +1,96 @@
+{
+	"contractVersion": 1,
+	"evaluationId": "invoice-default-region",
+	"rubric": {
+		"id": "code-correctness",
+		"version": 1
+	},
+	"target": {
+		"kind": "code",
+		"id": "invoice-default-region",
+		"version": "2",
+		"base": "b088402ee5eedd367423c8e5efcb9ac996d52064",
+		"head": "e8908ece278260ba8ef290eaa7526ce1b2aec8f1",
+		"changes": [
+			{
+				"id": "edit-1",
+				"path": "src/settings.ts",
+				"before": {
+					"startLine": 10,
+					"text": "export const defaults = { invoiceRegion: \"jp-east\", format: \"pdf\" };\n"
+				},
+				"after": {
+					"startLine": 10,
+					"text": "export const defaults = { invoiceRegion: \"jp-west\", format: \"pdf\" };\n"
+				}
+			},
+			{
+				"id": "edit-2",
+				"path": "src/invoice-route.ts",
+				"before": {
+					"startLine": 10,
+					"text": "return publishInvoice({ ...input, region: input.region ?? defaults.invoiceRegion });\n"
+				},
+				"after": {
+					"startLine": 10,
+					"text": "const region = input.region ?? defaults.invoiceRegion;\nreturn publishInvoice({ ...input, region });\n"
+				}
+			}
+		],
+		"digest": "33706ae85340e8254ccba9170d35f9811a6951f51f55695938de8b780bd6a030",
+		"diffDigest": "1e4979bce0e0170eaf57677428b4055a30d610f9fead840555378b5f13c64262"
+	},
+	"scope": [
+		"edit-1:base",
+		"edit-1:head",
+		"edit-2:base",
+		"edit-2:head"
+	],
+	"evidence": [],
+	"originalRequest": "帳票の既定出力リージョンを更新する。",
+	"conditions": {
+		"state": "available",
+		"revision": "2",
+		"entries": [
+			{
+				"id": "previous",
+				"text": "リージョン未指定の帳票は jp-west で生成する。",
+				"status": "withdrawn",
+				"appliesTo": {
+					"id": "invoice-default-region",
+					"version": "2",
+					"digest": "33706ae85340e8254ccba9170d35f9811a6951f51f55695938de8b780bd6a030"
+				},
+				"sources": [
+					{
+						"id": "release:previous",
+						"version": "1",
+						"active": true
+					}
+				]
+			},
+			{
+				"id": "acceptance",
+				"text": "出力先を明示していない帳票は jp-east で生成する。",
+				"status": "confirmed",
+				"appliesTo": {
+					"id": "invoice-default-region",
+					"version": "2",
+					"digest": "33706ae85340e8254ccba9170d35f9811a6951f51f55695938de8b780bd6a030"
+				},
+				"sources": [
+					{
+						"id": "release:acceptance",
+						"version": "2",
+						"active": true
+					}
+				]
+			}
+		]
+	},
+	"limits": {
+		"timeoutMs": 120000,
+		"maxInputBytes": 24000,
+		"maxOutputTokens": 4096
+	}
+}

@@ -1,0 +1,65 @@
+{
+	"contractVersion": 1,
+	"evaluationId": "quota-warning-level",
+	"rubric": {
+		"id": "code-correctness",
+		"version": 1
+	},
+	"target": {
+		"kind": "code",
+		"id": "quota-warning-level",
+		"version": "2",
+		"base": "43e0ac04e7f2782db901ec1f1b0c58e79f779c83",
+		"head": "c5c9cc89039c9a1b51ca68a21405f9f9e65a8195",
+		"changes": [
+			{
+				"id": "edit-1",
+				"path": "src/quota-alert.ts",
+				"before": {
+					"startLine": 10,
+					"text": "return usagePercent >= 80 ? \"warning\" : \"ok\";\n"
+				},
+				"after": {
+					"startLine": 10,
+					"text": "return usagePercent >= 85 ? \"warning\" : \"ok\";\n"
+				}
+			}
+		],
+		"digest": "7204bb17ca384d349890f0dc9a431ba532d29009ef8a1446cb8ad1d1b61c202a",
+		"diffDigest": "21f1b4f6aa4e2b3d46a15fc572c347dc9171658673c6795dd6d8a12d154a8014"
+	},
+	"scope": [
+		"edit-1:base",
+		"edit-1:head"
+	],
+	"evidence": [],
+	"originalRequest": "割り当て使用率の警告しきい値を更新する。",
+	"conditions": {
+		"state": "available",
+		"revision": "2",
+		"entries": [
+			{
+				"id": "acceptance",
+				"text": "使用率が80%以上なら警告する。ちょうど80%の場合も警告対象。",
+				"status": "confirmed",
+				"appliesTo": {
+					"id": "quota-warning-level",
+					"version": "2",
+					"digest": "7204bb17ca384d349890f0dc9a431ba532d29009ef8a1446cb8ad1d1b61c202a"
+				},
+				"sources": [
+					{
+						"id": "release:acceptance",
+						"version": "2",
+						"active": true
+					}
+				]
+			}
+		]
+	},
+	"limits": {
+		"timeoutMs": 120000,
+		"maxInputBytes": 24000,
+		"maxOutputTokens": 4096
+	}
+}

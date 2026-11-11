@@ -1,0 +1,82 @@
+{
+	"contractVersion": 1,
+	"evaluationId": "report-monthly-duration",
+	"rubric": {
+		"id": "code-correctness",
+		"version": 1
+	},
+	"target": {
+		"kind": "code",
+		"id": "report-monthly-duration",
+		"version": "2",
+		"base": "052356fe8981f7e422ef418e9aa4ed3636608f15",
+		"head": "0d433bb1699f66c40985b29b1840b68e7d7b5233",
+		"changes": [
+			{
+				"id": "edit-1",
+				"path": "src/monthly-report.ts",
+				"before": {
+					"startLine": 10,
+					"text": "return runReport({ budgetMs: 3000 });\n"
+				},
+				"after": {
+					"startLine": 10,
+					"text": "return runReport({ budgetMs: 4500 });\n"
+				}
+			}
+		],
+		"digest": "528be15dcea66cc87e34e98cb5c22dd34463126d80cd3a0db792eeed2df98a0c",
+		"diffDigest": "e81b963ab1bdf48ddf812a0cec001d1828ac56aae7432773cb6d07263d513fa4"
+	},
+	"scope": [
+		"edit-1:base",
+		"edit-1:head"
+	],
+	"evidence": [],
+	"originalRequest": "月次レポートの生成上限を更新する。",
+	"conditions": {
+		"state": "available",
+		"revision": "2",
+		"entries": [
+			{
+				"id": "previous",
+				"text": "生成上限は3,000ミリ秒。",
+				"status": "superseded",
+				"appliesTo": {
+					"id": "report-monthly-duration",
+					"version": "2",
+					"digest": "528be15dcea66cc87e34e98cb5c22dd34463126d80cd3a0db792eeed2df98a0c"
+				},
+				"sources": [
+					{
+						"id": "release:previous",
+						"version": "1",
+						"active": true
+					}
+				]
+			},
+			{
+				"id": "acceptance",
+				"text": "月次レポートの生成上限は訂正後の4,500ミリ秒。",
+				"status": "confirmed",
+				"appliesTo": {
+					"id": "report-monthly-duration",
+					"version": "2",
+					"digest": "528be15dcea66cc87e34e98cb5c22dd34463126d80cd3a0db792eeed2df98a0c"
+				},
+				"sources": [
+					{
+						"id": "release:acceptance",
+						"version": "2",
+						"active": true
+					}
+				]
+			}
+		]
+	},
+	"limits": {
+		"timeoutMs": 120000,
+		"maxInputBytes": 24000,
+		"maxOutputTokens": 4096
+	}
+}

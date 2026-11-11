@@ -1,13 +1,31 @@
 import { expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { ModelOutput } from "../src";
+import {
+	fingerprint,
+	type EvaluationModel,
+	type ModelRequest,
+	type ModelOutput,
+} from "../src";
+import {
+	investigationInstructions,
+	standardEvidenceInstructions,
+	verificationInstructions,
+} from "../src/investigation";
+import { scopedReviewInstructions } from "../src/rubrics";
 import { loadScorableRun } from "../src/bench/archive";
 import { score, type RecordedTrial } from "../src/bench/report";
 import { runSuite } from "../src/bench/run";
-import { loadSuite, readJson, schedule } from "../src/bench/suite";
+import {
+	loadSuite,
+	readJson,
+	schedule,
+	trialInput,
+	trialOptions,
+	withCodexSdk,
+} from "../src/bench/suite";
 
 const path = (relative: string) =>
 	fileURLToPath(new URL(relative, import.meta.url));
@@ -32,6 +50,186 @@ test("配布スイートの全入力・採点根拠を検証し、同一差分�
 		"D",
 		"A",
 	]);
+});
+
+test("複数の補足資料を使う比較は、同じ範囲と依頼で二構成を実行する", async () => {
+	const cases = await loadSuite(path("../examples/multi-evidence-suite.json"));
+	expect(cases).toHaveLength(6);
+	expect(schedule(cases, 3)).toHaveLength(36);
+	for (const item of cases) {
+		const quick = trialOptions(item, "context-quick").selection!;
+		const standard = trialOptions(item, "standard").selection!;
+		const evidence = standard.evidence;
+		if (!evidence?.allowed)
+			throw new Error(`${item.id} の許可資料がありません`);
+		expect(evidence.allowed.length).toBeGreaterThan(1);
+		expect(quick).toEqual({
+			...standard,
+			evidence: { ...evidence, initial: evidence.allowed },
+		});
+		expect(evidence.initial).toEqual([]);
+		expect(evidence.required).toEqual([]);
+		expect(trialInput(item, "context-quick")).toBe(
+			trialInput(item, "standard"),
+		);
+		expect(schedule([item], 2).map(({ arm }) => arm)).toEqual([
+			"context-quick",
+			"standard",
+			"standard",
+			"context-quick",
+		]);
+	}
+});
+
+test("調整用と最終評価用を分離し、最終評価の三群と訂正・撤回をそろえる", async () => {
+	const [calibration, final] = await Promise.all([
+		loadSuite(path("../examples/calibration-suite.json")),
+		loadSuite(path("../examples/final-suite.json")),
+	]);
+	expect(calibration).toHaveLength(6);
+	expect(schedule(final, 3)).toHaveLength(216);
+	const calibrationIds = new Set(calibration.map(({ id }) => id));
+	expect(final.some(({ id }) => calibrationIds.has(id))).toBe(false);
+	const groups = Map.groupBy(final, ({ group }) => group);
+	expect([...groups].map(([group, cases]) => [group, cases.length])).toEqual([
+		["code-regression", 6],
+		["condition-regression", 6],
+		["normal-change", 6],
+	]);
+	for (const group of ["condition-regression", "normal-change"]) {
+		const statuses = groups
+			.get(group)!
+			.flatMap(({ input }) =>
+				input.conditions.state === "available"
+					? input.conditions.entries.map(({ status }) => status)
+					: [],
+			);
+		expect(statuses).toContain("withdrawn");
+		expect(statuses).toContain("superseded");
+	}
+});
+
+test("SDK は資料先渡しQuickと同じ推論入力を別の接続で受け取り、採点にも残る", async () => {
+	const baseline = await loadSuite(
+		path("../examples/multi-evidence-suite.json"),
+	);
+	const compared = withCodexSdk(baseline);
+	expect(schedule(baseline, 3)).toHaveLength(36);
+	expect(schedule(compared, 3)).toHaveLength(54);
+	const temporary = await mkdtemp(join(tmpdir(), "eumenes-sdk-comparison-"));
+	const output = join(temporary, "run");
+	try {
+		const sdkInputs: ModelRequest[] = [];
+		const httpInputs: ModelRequest[] = [];
+		const model = (inputs: ModelRequest[]): EvaluationModel => ({
+			async complete(invocation) {
+				inputs.push(invocation);
+				const result = JSON.parse(invocation.prompt).evidenceCatalog
+					? { hypotheses: [], openQuestions: [], requests: [] }
+					: { findings: [], scopeChecks: [], conditionChecks: [] };
+				return { text: JSON.stringify(result) };
+			},
+		});
+		const options = {
+			output,
+			model: model(httpInputs),
+			modelId: "fixture",
+			repeats: 1,
+			signal: new AbortController().signal,
+		};
+		await expect(runSuite(compared.slice(0, 1), options)).rejects.toThrow(
+			"SDK の接続設定が必要",
+		);
+		expect(httpInputs).toEqual([]);
+		const summary = await runSuite(compared.slice(0, 1), {
+			...options,
+			codexSdk: { model: model(sdkInputs), version: "fixture-sdk" },
+		});
+		expect(summary.codexSdk?.version).toBe("fixture-sdk");
+		expect(sdkInputs).toHaveLength(1);
+		expect(httpInputs).toHaveLength(3);
+		expect(sdkInputs[0]).toEqual(httpInputs[0]);
+		const { cases, trials } = await loadScorableRun(output);
+		expect(trials.map(({ arm }) => arm)).toEqual([
+			"context-quick",
+			"standard",
+			"codex-sdk",
+		]);
+		expect(trials[2]?.result.inputDigest).toBe(trials[0]?.result.inputDigest);
+		const scores = score(trials, cases, {});
+		expect(scores.paired["context-quick->codex-sdk"].cases).toHaveLength(1);
+		expect(scores.paired["standard->codex-sdk"].cases).toHaveLength(1);
+	} finally {
+		await rm(temporary, { recursive: true, force: true });
+	}
+});
+
+test("SDK low 比較は三構成を SDK に送り、素のCodexとQuickに同じ資料を渡す", async () => {
+	const cases = withCodexSdk(
+		await loadSuite(path("../examples/multi-evidence-suite.json")),
+		"sdk-low",
+	);
+	expect(schedule(cases, 3)).toHaveLength(54);
+	const temporary = await mkdtemp(join(tmpdir(), "eumenes-sdk-low-"));
+	try {
+		const quickAndStandard: ModelRequest[] = [];
+		const bare: ModelRequest[] = [];
+		const fixture = (requests: ModelRequest[]): EvaluationModel => ({
+			async complete(invocation) {
+				requests.push(invocation);
+				const body = JSON.parse(invocation.prompt);
+				return {
+					text: JSON.stringify(
+						body.evidenceCatalog
+							? { hypotheses: [], openQuestions: [], requests: [] }
+							: { findings: [], scopeChecks: [], conditionChecks: [] },
+					),
+				};
+			},
+		});
+		const output = join(temporary, "run");
+		const summary = await runSuite(cases.slice(0, 1), {
+			output,
+			model: {
+				async complete() {
+					throw new Error("unexpected fallback");
+				},
+			},
+			modelId: "fixture",
+			codexSdk: {
+				version: "fixture-sdk",
+				model: fixture(quickAndStandard),
+				bare: {
+					model: fixture(bare),
+					promptDigest: "fixture",
+					reasoningEffort: "low",
+				},
+			},
+			repeats: 1,
+			signal: new AbortController().signal,
+		});
+		expect(summary.codexSdk).toMatchObject({
+			comparison: "sdk-only",
+			reasoningEffort: "low",
+		});
+		expect(quickAndStandard).toHaveLength(3);
+		expect(bare).toEqual([quickAndStandard[0]]);
+		const run = await loadScorableRun(output);
+		expect(run.trials.map(({ arm }) => arm)).toEqual([
+			"context-quick",
+			"standard",
+			"codex-bare",
+		]);
+		expect(run.trials[0]?.result.inputDigest).toBe(
+			run.trials[2]?.result.inputDigest,
+		);
+		expect(
+			score(run.trials, run.cases, {}).paired["codex-bare->context-quick"]
+				.cases,
+		).toHaveLength(1);
+	} finally {
+		await rm(temporary, { recursive: true, force: true });
+	}
 });
 
 test("範囲と深度を含む新版の完全な記録も予定入力に照合できる", async () => {
@@ -76,7 +274,31 @@ test("範囲と深度を含む新版の完全な記録も予定入力に照合�
 				},
 			},
 		});
+		const run = await Bun.file(join(output, "run.json")).json();
+		expect(run.instructions.standardEvidence).toBe(
+			fingerprint(standardEvidenceInstructions),
+		);
+		for (const [name, text] of Object.entries({
+			scoped: scopedReviewInstructions,
+			investigation: investigationInstructions,
+			verification: verificationInstructions,
+		})) {
+			expect(run.instructions[name]).toBe(fingerprint(text));
+			expect(run.instructions[name]).not.toBe(fingerprint(text + "."));
+		}
+		const raw = (await Bun.file(join(output, "raw.jsonl")).text())
+			.trim()
+			.split("\n")
+			.map((line) => JSON.parse(line));
 		const { cases, trials } = await loadScorableRun(output);
+		const standard = trials.find((trial) => trial.arm === "standard")!;
+		expect(
+			raw
+				.filter((row) => row.reviewId === standard.reviewId)
+				.map((row) => row.phase),
+		).toEqual(["investigation", "verification"]);
+		await rm(join(output, "raw.jsonl"));
+		expect((await loadScorableRun(output)).trials).toHaveLength(4);
 		expect(trials.map(({ arm }) => arm)).toEqual([
 			"scoped-quick",
 			"context-quick",
@@ -169,6 +391,7 @@ test("検証結果を保存し、構成を伏せた指摘から検出率・誤�
 			[d]: [{ label: "false_positive" }],
 		});
 		expect(graded.arms.C).toMatchObject({
+			caseIds: [item.id],
 			known: 1,
 			detected: 1,
 			recall: 1,
@@ -192,10 +415,48 @@ test("検証結果を保存し、構成を伏せた指摘から検出率・誤�
 		const complete = scoreArchive();
 		expect(complete.exitCode).toBe(0);
 		expect(JSON.parse(complete.stdout.toString())).toEqual(graded);
+		for (const [change, error] of [
+			[{ runId: crypto.randomUUID() }, "実行 ID と一致しません"],
+			[{ suiteDigest: "f".repeat(64) }, "識別情報が一致しません"],
+			[{ planned: summary.planned + 1 }, "識別情報が一致しません"],
+		] as const) {
+			await Bun.write(
+				join(output, "summary.json"),
+				JSON.stringify({ ...summary, ...change }),
+			);
+			await expect(loadScorableRun(output)).rejects.toThrow(error);
+		}
+		await Bun.write(join(output, "summary.json"), JSON.stringify(summary));
+		const runPath = join(output, "run.json");
+		const metadata = await Bun.file(runPath).text();
+		await Bun.write(
+			runPath,
+			JSON.stringify({ ...JSON.parse(metadata), planned: summary.planned + 1 }),
+		);
+		await Bun.write(
+			join(output, "summary.json"),
+			JSON.stringify({ ...summary, planned: summary.planned + 1 }),
+		);
+		await expect(loadScorableRun(output)).rejects.toThrow(
+			"予定試行の集合が一致しません",
+		);
+		await Bun.write(runPath, metadata);
+		await Bun.write(join(output, "summary.json"), JSON.stringify(summary));
 		const [first, second, ...rest] = journal.trim().split("\n");
 		for (const [records, error] of [
 			[[first], "試行記録が揃っていません"],
 			[[first, first, ...rest], "重複した試行記録"],
+			[
+				[
+					JSON.stringify({
+						...trials[0],
+						result: { ...trials[0]!.result, status: "cancelled" },
+					}),
+					second,
+					...rest,
+				],
+				"取り消された試行",
+			],
 			[
 				[
 					JSON.stringify({ ...trials[0], runId: crypto.randomUUID() }),
@@ -217,6 +478,7 @@ test("検証結果を保存し、構成を伏せた指摘から検出率・誤�
 			],
 		] as const) {
 			await Bun.write(join(output, "trials.jsonl"), records.join("\n") + "\n");
+			await expect(loadScorableRun(output)).rejects.toThrow(error);
 			const rejected = scoreArchive();
 			expect(rejected.exitCode).toBe(1);
 			expect(rejected.stdout.toString()).toBe("");
@@ -233,6 +495,105 @@ test("検証結果を保存し、構成を伏せた指摘から検出率・誤�
 			"中断した実行は採点できません",
 		);
 	} finally {
+		await rm(temporary, { recursive: true, force: true });
+	}
+});
+
+test("スイート外を指すリンクとディレクトリを依頼ファイルとして拒否する", async () => {
+	const temporary = await mkdtemp(join(tmpdir(), "eumenes-suite-path-"));
+	try {
+		const inside = join(temporary, "suite");
+		await mkdir(inside);
+		const outside = join(temporary, "outside.json");
+		await Bun.write(outside, Bun.file(path("../examples/code-request.json")));
+		const suitePath = join(inside, "suite.json");
+		const [item] = (await Bun.file(path("../examples/suite.json")).json())
+			.cases;
+		await symlink(outside, join(inside, "escape.json"));
+		await mkdir(join(inside, "directory.json"));
+		for (const request of ["escape.json", "directory.json"]) {
+			await Bun.write(
+				suitePath,
+				JSON.stringify({ version: 1, cases: [{ ...item, request }] }),
+			);
+			await expect(loadSuite(suitePath)).rejects.toThrow(
+				"スイート内の通常ファイル",
+			);
+		}
+	} finally {
+		await rm(temporary, { recursive: true, force: true });
+	}
+});
+
+test("bench CLI は指定モデルで実行し、生出力と失敗の内訳を保存する", async () => {
+	const temporary = await mkdtemp(join(tmpdir(), "eumenes-bench-model-"));
+	const output = join(temporary, "run");
+	const submitted: string[] = [];
+	const server = Bun.serve({
+		hostname: "127.0.0.1",
+		port: 0,
+		async fetch(request) {
+			const { model } = (await request.json()) as { model: string };
+			submitted.push(model);
+			expect(request.headers.get("authorization")).toBe("Bearer fixture");
+			return Response.json({
+				choices: [
+					{ finish_reason: "stop", message: { content: "malformed fixture" } },
+				],
+			});
+		},
+	});
+	try {
+		const args = [
+			process.execPath,
+			"src/bench/cli.ts",
+			"run",
+			"--case",
+			"workflow-team",
+			"--endpoint",
+			server.url.href,
+			"--model",
+			"fixture-model",
+			"--out",
+			output,
+		];
+		const options = {
+			cwd: path(".."),
+			env: { ...process.env, EVALUATOR_API_KEY: "fixture" },
+			stdout: "pipe",
+			stderr: "pipe",
+		} as const;
+		const mixed = Bun.spawn([...args, "--openai"], options);
+		expect(await mixed.exited).toBe(1);
+		expect(submitted).toEqual([]);
+		const run = Bun.spawn(args, options);
+		expect(await run.exited).toBe(2);
+		expect(submitted).toEqual(["fixture-model"]);
+		const metadata = await Bun.file(join(output, "run.json")).json();
+		expect(metadata).toMatchObject({
+			model: "fixture-model",
+			endpointHost: "127.0.0.1",
+		});
+		const summary = await Bun.file(join(output, "summary.json")).json();
+		expect(summary.arms.workflow).toMatchObject({
+			issues: { invalid_model_output: 1 },
+			rejected: 0,
+		});
+		const [{ reviewId, findings }] = await Bun.file(
+			join(output, "review.json"),
+		).json();
+		expect(findings).toEqual([]);
+		const raw = JSON.parse(await Bun.file(join(output, "raw.jsonl")).text());
+		expect(raw).toEqual({
+			reviewId,
+			phase: "verification",
+			text: "malformed fixture",
+		});
+		expect(await Bun.file(join(output, "scores.template.json")).json()).toEqual(
+			{},
+		);
+	} finally {
+		server.stop(true);
 		await rm(temporary, { recursive: true, force: true });
 	}
 });

@@ -1,4 +1,8 @@
 import type { EvaluationRequest } from "./contracts";
+import type { ScopeSelection } from "./scope";
+
+export const scopedReviewInstructions =
+	"findings の primary には primaryEvidenceIds にある ID を指定してください。scope に含まれていても補足資料は evidence に引用してください。pointerRoot がある資料の位置は、その値を先頭に持つ元文書上の絶対 JSON Pointer で返してください。";
 
 const instructions: Record<EvaluationRequest["rubric"]["id"], string> = {
 	"code-general":
@@ -39,6 +43,13 @@ export function rubricInstructions(
 
 export const comparisonArms = ["A", "B", "C", "D"] as const;
 export type ComparisonArm = (typeof comparisonArms)[number];
+
+export function comparisonSelection(
+	selection: ScopeSelection,
+	arm: ComparisonArm,
+): ScopeSelection {
+	return arm === "C" ? selection : { ...selection, conditionIds: [] };
+}
 
 export function comparisonRequest(
 	request: EvaluationRequest,

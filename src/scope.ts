@@ -8,6 +8,7 @@ import {
 	side,
 	type EvaluationRequest,
 	type Evidence,
+	type IssueCode,
 	type ReviewEvidence,
 } from "./contracts";
 import {
@@ -193,7 +194,7 @@ function projectWorkflow(
 
 export class ScopeError extends Error {
 	constructor(
-		readonly code: string,
+		readonly code: IssueCode,
 		detail?: string,
 	) {
 		super(detail ?? code);
@@ -251,6 +252,7 @@ export function resolveScope(request: EvaluationRequest, input: unknown) {
 		(item) => permitted.has(item.id),
 	);
 	const initialEvidence = catalog.filter((item) => initialIds.has(item.id));
+	const availableIds = new Set(catalog.map((item) => item.id));
 	const present = new Set(initialEvidence.map((item) => item.id));
 	const scopeIds = [
 		...new Set([
@@ -318,6 +320,7 @@ export function resolveScope(request: EvaluationRequest, input: unknown) {
 			initialEvidenceIds: initial,
 			allowedEvidenceIds: [...permitted],
 			availableEvidence: catalog.map(evidenceCoordinates),
+			unknownEvidenceIds: [...permitted].filter((id) => !availableIds.has(id)),
 			requiredEvidenceIds: required,
 			conditionIds: selection.conditionIds,
 			unavailableConditionIds: unavailableConditions,

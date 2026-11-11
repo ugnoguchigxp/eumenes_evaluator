@@ -1,0 +1,275 @@
+{
+	"contractVersion": 1,
+	"evaluationId": "alder-report-delivery",
+	"rubric": {
+		"id": "workflow-correctness",
+		"version": 1
+	},
+	"target": {
+		"kind": "workflow",
+		"id": "alder-report-delivery",
+		"version": "2",
+		"document": {
+			"inputs": {
+				"dataset": "weekly-sales",
+				"workspace": "alder"
+			},
+			"steps": [
+				{
+					"id": "summarize",
+					"kind": "aggregate",
+					"input": "weekly-sales"
+				}
+			],
+			"publish": {
+				"kind": "report",
+				"transport": "catalog",
+				"channelRef": "weekly-report"
+			}
+		},
+		"digest": "c8451158f3b69ac18a7f42b9459a56664b8ee2ae9c056dee207d43a6c015eae5"
+	},
+	"scope": [
+		"workflow"
+	],
+	"evidence": [
+		{
+			"kind": "json",
+			"id": "archived-report-channels",
+			"version": "2",
+			"document": {
+				"catalog": "reports",
+				"state": "archived",
+				"appliesTo": "legacy transports",
+				"channels": {
+					"weekly-report": {
+						"sink": "mail-digest"
+					},
+					"monthly-report": {
+						"sink": "mail-digest"
+					}
+				}
+			},
+			"clipped": false
+		},
+		{
+			"kind": "json",
+			"id": "channel-retry-policy",
+			"version": "2",
+			"document": {
+				"transport": "catalog",
+				"attempts": 3,
+				"baseDelayMs": 500,
+				"retryableStatus": [
+					429,
+					500,
+					502,
+					503
+				],
+				"idempotencyKey": [
+					"workflowId",
+					"runId",
+					"sink"
+				]
+			},
+			"clipped": false
+		},
+		{
+			"kind": "json",
+			"id": "catalog-runtime",
+			"version": "2",
+			"document": {
+				"transport": "catalog",
+				"kindMapping": {
+					"report": "reports",
+					"alert": "alerts"
+				},
+				"selection": {
+					"state": "active",
+					"field": "channelRef"
+				},
+				"resolver": {
+					"routeField": "sink",
+					"policyCatalog": "report-sinks",
+					"accessField": "visibility"
+				}
+			},
+			"clipped": false
+		},
+		{
+			"kind": "json",
+			"id": "team-library-retention",
+			"version": "2",
+			"document": {
+				"sink": "team-library",
+				"policy": "retention",
+				"expireAfterDays": 90,
+				"autoArchiveAfterDays": 30,
+				"backups": {
+					"enabled": true,
+					"ttlDays": 14
+				}
+			},
+			"clipped": false
+		},
+		{
+			"kind": "json",
+			"id": "report-sinks",
+			"version": "2",
+			"document": {
+				"catalog": "report-sinks",
+				"state": "active",
+				"sinks": {
+					"team-library": {
+						"delivery": "workspace-collection",
+						"visibility": "team",
+						"indexable": false
+					},
+					"metrics-web": {
+						"delivery": "web-page",
+						"visibility": "public",
+						"indexable": true
+					},
+					"mail-digest": {
+						"delivery": "mail-list",
+						"visibility": "team",
+						"indexable": false
+					}
+				}
+			},
+			"clipped": false
+		},
+		{
+			"kind": "json",
+			"id": "alerts-channels",
+			"version": "2",
+			"document": {
+				"catalog": "alerts",
+				"state": "active",
+				"channels": {
+					"weekly-report": {
+						"sink": "mail-digest"
+					},
+					"incident": {
+						"sink": "oncall"
+					}
+				}
+			},
+			"clipped": false
+		},
+		{
+			"kind": "json",
+			"id": "report-redaction",
+			"version": "2",
+			"document": {
+				"kinds": [
+					"report"
+				],
+				"mode": "aggregate-only",
+				"minimumCellCount": 10,
+				"excludeFields": [
+					"accountEmail",
+					"contactName"
+				],
+				"fallback": "suppress-cell"
+			},
+			"clipped": false
+		},
+		{
+			"kind": "json",
+			"id": "report-channels",
+			"version": "2",
+			"document": {
+				"catalog": "reports",
+				"state": "active",
+				"channels": {
+					"weekly-report": {
+						"sink": "metrics-web",
+						"schedule": "monday-09:00",
+						"encoding": "html"
+					},
+					"monthly-report": {
+						"sink": "team-library",
+						"schedule": "first-business-day",
+						"encoding": "pdf"
+					},
+					"quarterly-metrics": {
+						"sink": "metrics-web",
+						"schedule": "last-friday",
+						"encoding": "html"
+					}
+				}
+			},
+			"clipped": false
+		},
+		{
+			"kind": "json",
+			"id": "report-channel-preview",
+			"version": "2",
+			"document": {
+				"catalog": "reports",
+				"state": "preview",
+				"channels": {
+					"weekly-report": {
+						"sink": "metrics-web",
+						"schedule": "manual"
+					},
+					"monthly-report": {
+						"sink": "metrics-web",
+						"schedule": "manual"
+					}
+				}
+			},
+			"clipped": false
+		},
+		{
+			"kind": "json",
+			"id": "report-audit-events",
+			"version": "2",
+			"document": {
+				"type": "report.delivery",
+				"recorded": [
+					"workflowId",
+					"runId",
+					"channelRef",
+					"sink",
+					"outcome"
+				],
+				"redacted": [
+					"recipientList"
+				],
+				"retentionDays": 180
+			},
+			"clipped": false
+		}
+	],
+	"originalRequest": "週次レポートの公開先を設定カタログから解決する。",
+	"conditions": {
+		"state": "available",
+		"revision": "2",
+		"entries": [
+			{
+				"id": "acceptance",
+				"text": "週次レポートを閲覧できるのはワークスペースのチームメンバーに限る。",
+				"status": "confirmed",
+				"appliesTo": {
+					"id": "alder-report-delivery",
+					"version": "2",
+					"digest": "c8451158f3b69ac18a7f42b9459a56664b8ee2ae9c056dee207d43a6c015eae5"
+				},
+				"sources": [
+					{
+						"id": "release-acceptance:report-delivery",
+						"version": "2",
+						"active": true
+					}
+				]
+			}
+		]
+	},
+	"limits": {
+		"timeoutMs": 120000,
+		"maxInputBytes": 24000,
+		"maxOutputTokens": 4096
+	}
+}

@@ -1,0 +1,149 @@
+{
+	"version": 1,
+	"cases": [
+		{
+			"id": "granite-preview-deadline",
+			"group": "preview-deadline",
+			"request": "cases/granite-preview-deadline.json",
+			"scope": "scopes/granite-preview-deadline.json",
+			"depthArms": [
+				"context-quick",
+				"standard"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {
+					"acceptance": "violated"
+				},
+				"defects": [
+					{
+						"id": "csv-timeout-profile",
+						"description": "interactive の csvPreview は 3000 ms。変更前の service-default では 750 ms で、変更後はリリース条件を破る。",
+						"severity": "medium",
+						"evidence": {
+							"evidenceId": "edit:head",
+							"startLine": 14,
+							"endLine": 14,
+							"pointer": null
+						}
+					}
+				]
+			},
+			"notes": "プレビューの呼び出し元、解決関数、現行設定を結ぶ。worker 設定とプロキシの上限は適用対象が異なる。"
+		},
+		{
+			"id": "maple-preview-deadline",
+			"group": "preview-deadline",
+			"request": "cases/maple-preview-deadline.json",
+			"scope": "scopes/maple-preview-deadline.json",
+			"depthArms": [
+				"context-quick",
+				"standard"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {
+					"acceptance": "satisfied"
+				},
+				"defects": []
+			},
+			"notes": "プレビューの呼び出し元、解決関数、現行設定を結ぶ。worker 設定とプロキシの上限は適用対象が異なる。"
+		},
+		{
+			"id": "juniper-feed-cursor",
+			"group": "feed-cursor",
+			"request": "cases/juniper-feed-cursor.json",
+			"scope": "scopes/juniper-feed-cursor.json",
+			"depthArms": [
+				"context-quick",
+				"standard"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {
+					"acceptance": "violated"
+				},
+				"defects": [
+					{
+						"id": "cursor-id-order",
+						"description": "同時刻の ID の並びは昇順に変わるが、現行カーソルは ID が最終行より小さい行を継続ページに選ぶ。同時刻に 10、20 があり 1 行ずつ取得すると、10 の次に 20 が出ない。",
+						"severity": "high",
+						"evidence": {
+							"evidenceId": "edit:head",
+							"startLine": 42,
+							"endLine": 42,
+							"pointer": null
+						}
+					}
+				]
+			},
+			"notes": "現行の /feed は v2 カーソルを使う。昇順のエクスポート仕様は別のエンドポイント。"
+		},
+		{
+			"id": "cedar-feed-cursor",
+			"group": "feed-cursor",
+			"request": "cases/cedar-feed-cursor.json",
+			"scope": "scopes/cedar-feed-cursor.json",
+			"depthArms": [
+				"context-quick",
+				"standard"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {
+					"acceptance": "satisfied"
+				},
+				"defects": []
+			},
+			"notes": "現行の /feed は v2 カーソルを使う。昇順のエクスポート仕様は別のエンドポイント。"
+		},
+		{
+			"id": "alder-report-delivery",
+			"group": "report-delivery",
+			"request": "cases/alder-report-delivery.json",
+			"scope": "scopes/alder-report-delivery.json",
+			"depthArms": [
+				"context-quick",
+				"standard"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {
+					"acceptance": "violated"
+				},
+				"defects": [
+					{
+						"id": "report-public-sink",
+						"description": "有効な reports カタログの weekly-report が metrics-web を選び、現行配信先の visibility が public なのでチーム外から閲覧できる。",
+						"severity": "high",
+						"evidence": {
+							"evidenceId": "workflow",
+							"startLine": null,
+							"endLine": null,
+							"pointer": "/publish/channelRef"
+						}
+					}
+				]
+			},
+			"notes": "catalog の種別と有効状態で適用先を絞る。プレビュー、旧版、通知用カタログに同名の参照がある。"
+		},
+		{
+			"id": "birch-report-delivery",
+			"group": "report-delivery",
+			"request": "cases/birch-report-delivery.json",
+			"scope": "scopes/birch-report-delivery.json",
+			"depthArms": [
+				"context-quick",
+				"standard"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {
+					"acceptance": "satisfied"
+				},
+				"defects": []
+			},
+			"notes": "catalog の種別と有効状態で適用先を絞る。プレビュー、旧版、通知用カタログに同名の参照がある。"
+		}
+	]
+}

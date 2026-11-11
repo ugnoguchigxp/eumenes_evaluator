@@ -1,0 +1,65 @@
+{
+	"contractVersion": 1,
+	"evaluationId": "filter-numeric-units",
+	"rubric": {
+		"id": "code-correctness",
+		"version": 1
+	},
+	"target": {
+		"kind": "code",
+		"id": "filter-numeric-units",
+		"version": "2",
+		"base": "a4a5029ddf6826d9408ac9ed1a4ea7dfe4e7ad23",
+		"head": "d54d45ccb9088d537b34020943520c454db345f8",
+		"changes": [
+			{
+				"id": "edit-1",
+				"path": "src/sample-filter.ts",
+				"before": {
+					"startLine": 10,
+					"text": "const limits = { min: 1000, max: 5000 };\nreturn rows.filter(row => row.delayMs >= limits.min && row.delayMs <= limits.max);\n"
+				},
+				"after": {
+					"startLine": 10,
+					"text": "const limits = { minMs: 1000, maxMs: 5000 };\nreturn rows.filter(row => row.delayMs >= limits.minMs && row.delayMs <= limits.maxMs);\n"
+				}
+			}
+		],
+		"digest": "295a41c0f945ca34cb7d2472e8c299bfd428658eb7d025f95079e6dad665e17e",
+		"diffDigest": "8c71901f3e0fc9452469039931882bdca7a9f965f29ad8e1d7470be5c4cfe3fb"
+	},
+	"scope": [
+		"edit-1:base",
+		"edit-1:head"
+	],
+	"evidence": [],
+	"originalRequest": "数値フィルタの単位を名前に出す。",
+	"conditions": {
+		"state": "available",
+		"revision": "2",
+		"entries": [
+			{
+				"id": "acceptance",
+				"text": "1000ミリ秒と5000ミリ秒の境界値をどちらも含め、範囲外のレコードは除く。",
+				"status": "confirmed",
+				"appliesTo": {
+					"id": "filter-numeric-units",
+					"version": "2",
+					"digest": "295a41c0f945ca34cb7d2472e8c299bfd428658eb7d025f95079e6dad665e17e"
+				},
+				"sources": [
+					{
+						"id": "release:acceptance",
+						"version": "2",
+						"active": true
+					}
+				]
+			}
+		]
+	},
+	"limits": {
+		"timeoutMs": 120000,
+		"maxInputBytes": 24000,
+		"maxOutputTokens": 4096
+	}
+}

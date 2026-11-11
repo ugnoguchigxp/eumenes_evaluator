@@ -16,6 +16,7 @@ export const path = z
 	.max(1024)
 	.refine(
 		(value) =>
+			// oxlint-disable-next-line no-control-regex -- Fixed evidence paths exclude control characters.
 			!/[\\\u0000-\u001f]/.test(value) &&
 			value
 				.split("/")
@@ -166,6 +167,16 @@ export type Target = z.infer<typeof targetSchema>;
 export type ReviewEvidence =
 	Evidence | (Extract<Evidence, { kind: "json" }> & { pointerRoot: string });
 
+export type ExcludedCondition = {
+	id: string;
+	reason: "not_confirmed" | "target_mismatch" | "source_inactive";
+};
+export type RejectedOutput = {
+	kind: keyof ModelOutput | "questionChecks";
+	index: number;
+	reason: string;
+};
+
 export interface ModelRequest {
 	system: string;
 	prompt: string;
@@ -180,6 +191,46 @@ export interface ModelResponse {
 export interface EvaluationModel {
 	complete(request: ModelRequest, signal: AbortSignal): Promise<ModelResponse>;
 }
+export const issueCodes = [
+	"cancelled",
+	"condition_sources_inactive",
+	"condition_target_mismatch",
+	"conditions_unavailable",
+	"conditions_unverified",
+	"deadline_exceeded",
+	"duplicate_condition",
+	"duplicate_evidence_or_scope",
+	"empty_diff_excerpt",
+	"evidence_version_mismatch",
+	"invalid_diff",
+	"invalid_investigation_output",
+	"invalid_model_output",
+	"invalid_request",
+	"invalid_review_depth",
+	"invalid_scope_selection",
+	"investigation_evidence_unavailable",
+	"investigation_questions_unverified",
+	"model_output_partially_rejected",
+	"model_request_failed",
+	"prompt_size_limit",
+	"request_size_limit",
+	"required_conditions_unavailable",
+	"rubric_target_mismatch",
+	"scope_evidence_id_conflict",
+	"scope_evidence_not_allowed",
+	"scope_preview_mismatch",
+	"scope_required_for_depth",
+	"scope_required_for_preview_digest",
+	"scope_selector_no_match",
+	"scope_selector_target_mismatch",
+	"scope_target_mismatch",
+	"scope_unverified",
+	"steering_requires_standard",
+	"target_digest_mismatch",
+	"target_scope_missing",
+] as const;
+export type IssueCode = (typeof issueCodes)[number];
+
 export interface EvaluationResult extends ModelOutput {
 	contractVersion: 1;
 	evaluationId: string | null;
@@ -187,6 +238,12 @@ export interface EvaluationResult extends ModelOutput {
 	target: Pick<Target, "kind" | "id" | "version" | "digest"> | null;
 	inputDigest: string | null;
 	scopeSelection?: ResolvedScope["summary"];
+	steering?: {
+		outcome: "committed" | "released" | "unknown";
+		evidenceIds: string[];
+		ignored: number;
+		reason?: "input_budget";
+	};
 	review?: {
 		depth: ReviewDepth;
 		stages: ReviewStage[];
@@ -194,8 +251,10 @@ export interface EvaluationResult extends ModelOutput {
 	};
 	conditions: "none" | "available" | "unavailable" | null;
 	conditionRevision: string | null;
+	conditionSelection: { applied: string[]; excluded: ExcludedCondition[] };
+	rejected: RejectedOutput[];
 	status: "completed" | "incomplete" | "failed" | "cancelled" | "expired";
-	issues: Array<{ code: string; detail?: string }>;
+	issues: Array<{ code: IssueCode; detail?: string }>;
 	durationMs: number;
 	model?: string;
 	usage?: ModelResponse["usage"];

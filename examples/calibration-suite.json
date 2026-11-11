@@ -1,0 +1,147 @@
+{
+	"version": 1,
+	"cases": [
+		{
+			"id": "batch-limit",
+			"group": "condition-regression",
+			"request": "code-request.json",
+			"arms": [
+				"A",
+				"B",
+				"C",
+				"D"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {
+					"max-batch-size": "violated"
+				},
+				"defects": [
+					{
+						"id": "batch-over-limit",
+						"description": "固定値20は、確定上限10を超える。変更後の設定行で確認できる。",
+						"severity": "medium",
+						"evidence": {
+							"evidenceId": "batch-size:head",
+							"startLine": 1,
+							"endLine": 1,
+							"pointer": null
+						}
+					}
+				]
+			},
+			"notes": "同じ差分の batch-corrected では上限が訂正され、違反が消える。"
+		},
+		{
+			"id": "batch-corrected",
+			"group": "corrected-condition",
+			"request": "cases/batch-corrected.json",
+			"arms": [
+				"A",
+				"B",
+				"C"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {
+					"new-cap": "satisfied"
+				},
+				"defects": []
+			},
+			"notes": "旧上限10を根拠にした指摘は誤指摘。コードと対象digestは batch-limit と同じ。"
+		},
+		{
+			"id": "retry-delay",
+			"group": "code-regression",
+			"request": "cases/retry-delay.json",
+			"arms": [
+				"A",
+				"B",
+				"C"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {},
+				"defects": [
+					{
+						"id": "retry-unit",
+						"description": "delaySeconds=2 のとき従来の2000msから2msに変わる。setTimeoutはミリ秒を受ける。",
+						"severity": "medium",
+						"evidence": {
+							"evidenceId": "edit:head",
+							"startLine": 8,
+							"endLine": 8,
+							"pointer": null
+						}
+					}
+				]
+			},
+			"notes": "timer 資料の呼出しと合わせて再現条件を確認する。"
+		},
+		{
+			"id": "receipt-rename",
+			"group": "normal-change",
+			"request": "cases/receipt-rename.json",
+			"arms": [
+				"A",
+				"B",
+				"C"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {},
+				"defects": []
+			},
+			"notes": "このモジュールの利用側は提示した1件。呼出しと import は新しい名前に揃い、戻り値も同じ。"
+		},
+		{
+			"id": "export-columns",
+			"group": "withdrawn-condition",
+			"request": "cases/export-columns.json",
+			"arms": [
+				"A",
+				"B",
+				"C"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {
+					"keep-title": "satisfied"
+				},
+				"defects": []
+			},
+			"notes": "列数の制限は撤回済み。現行の title 維持条件は満たす。"
+		},
+		{
+			"id": "report-format",
+			"group": "condition-regression",
+			"request": "cases/report-format.json",
+			"arms": [
+				"A",
+				"B",
+				"C",
+				"D"
+			],
+			"expected": {
+				"status": "completed",
+				"conditions": {
+					"format": "violated"
+				},
+				"defects": [
+					{
+						"id": "report-not-json",
+						"description": "出力形式がJSONからCSVに変更され、JSONのみ受け付ける連携先で処理できなくなる。",
+						"severity": "medium",
+						"evidence": {
+							"evidenceId": "edit:head",
+							"startLine": 4,
+							"endLine": 4,
+							"pointer": null
+						}
+					}
+				]
+			},
+			"notes": "元の依頼文にも条件を明示し、C と D の両方が根拠を得られるようにした。"
+		}
+	]
+}

@@ -1,14 +1,22 @@
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { openaiLuna, openaiLunaModel } from "../http-model";
+import {
+	httpModel,
+	openaiEndpoint,
+	openaiLuna,
+	openaiLunaModel,
+} from "../http-model";
+import { fingerprint } from "../snapshot";
 import { loadScorableRun } from "./archive";
 import { score } from "./report";
 import { runSuite } from "./run";
-import { loadSuite, readJson, schedule } from "./suite";
+import { loadSuite, readJson, schedule, withCodexSdk } from "./suite";
 
 const help = [
 	"bun run bench check [--suite examples/suite.json]",
-	"bun run bench run --openai [--repeat 3] [--case <id>] [--out <new-directory>] [--suite <file>]",
+	"bun run bench run (--openai | --endpoint <chat-completions-url> --model <model>) [--repeat 3] [--case <id>] [--out <new-directory>] [--suite <file>]",
+	"bun run bench run --openai --codex-sdk --repeat 3 [--suite examples/multi-evidence-suite.json]",
+	"bun run bench run --openai --codex-sdk-low --repeat 3 [--suite examples/multi-evidence-suite.json]",
 	"bun run bench score <run-directory> <scores.json>",
 ].join("\n");
 
@@ -19,6 +27,10 @@ async function main() {
 		options: {
 			help: { type: "boolean" },
 			openai: { type: "boolean" },
+			"codex-sdk": { type: "boolean" },
+			"codex-sdk-low": { type: "boolean" },
+			endpoint: { type: "string" },
+			model: { type: "string" },
 			suite: { type: "string" },
 			repeat: { type: "string" },
 			case: { type: "string", multiple: true },
@@ -48,8 +60,23 @@ async function main() {
 		throw new Error(help);
 	if (command === "check" && Object.keys(values).some((key) => key !== "suite"))
 		throw new Error(help);
-	if (command === "run" && !values.openai) throw new Error(help);
-	const cases = await loadSuite(values.suite ?? "examples/suite.json");
+	if (
+		command === "run" &&
+		(values.openai
+			? values.endpoint !== undefined || values.model !== undefined
+			: !values.endpoint || !values.model)
+	)
+		throw new Error(help);
+	const sdkLow = values["codex-sdk-low"];
+	const useSdk = sdkLow || values["codex-sdk"];
+	if ((useSdk && !values.openai) || (sdkLow && values["codex-sdk"]))
+		throw new Error(
+			"SDK 比較は --openai と組み合わせ、SDK の比較方式を一つ指定してください",
+		);
+	const cases = await loadSuite(
+		values.suite ??
+			(useSdk ? "examples/multi-evidence-suite.json" : "examples/suite.json"),
+	);
 	if (command === "check") {
 		console.log(
 			JSON.stringify(
@@ -73,7 +100,31 @@ async function main() {
 	const repeats = Number(values.repeat ?? "1");
 	if (!Number.isSafeInteger(repeats) || repeats < 1)
 		throw new Error("--repeat に正の整数を指定してください");
-	const model = openaiLunaModel();
+	const modelId = values.openai ? openaiLuna : values.model!;
+	const endpoint = values.openai ? openaiEndpoint : values.endpoint!;
+	let codexSdk: Parameters<typeof runSuite>[1]["codexSdk"];
+	if (useSdk) {
+		const { bareReviewRequest, codexSdkLunaModel } =
+			await import("./codex-sdk");
+		const reasoningEffort = sdkLow ? "low" : undefined;
+		codexSdk = {
+			...codexSdkLunaModel({ reasoningEffort }),
+			...(reasoningEffort
+				? {
+						bare: {
+							model: codexSdkLunaModel({ reasoningEffort, bare: true }).model,
+							reasoningEffort,
+							promptDigest: fingerprint(bareReviewRequest),
+						},
+					}
+				: {}),
+		};
+	}
+	const model = codexSdk?.bare
+		? codexSdk.model
+		: values.openai
+			? openaiLunaModel()
+			: httpModel(endpoint, modelId, Bun.env.EVALUATOR_API_KEY);
 	const directory = resolve(
 		values.out ??
 			join(
@@ -88,20 +139,25 @@ async function main() {
 	process.on("SIGINT", abort);
 	process.on("SIGTERM", abort);
 	try {
-		const result = await runSuite(subset, {
-			model,
-			modelId: openaiLuna,
-			repeats,
-			output: directory,
-			signal: controller.signal,
-			progress: (trial) =>
-				console.error(
-					`${trial.caseId} ${trial.arm} #${trial.repeat}: ${trial.result.status}` +
-						(trial.mismatches.length
-							? ` (期待値との差 ${trial.mismatches.length}件)`
-							: ""),
-				),
-		});
+		const result = await runSuite(
+			codexSdk ? withCodexSdk(subset, sdkLow ? "sdk-low" : "mixed") : subset,
+			{
+				model,
+				codexSdk,
+				modelId,
+				endpointHost: new URL(endpoint).hostname,
+				repeats,
+				output: directory,
+				signal: controller.signal,
+				progress: (trial) =>
+					console.error(
+						`${trial.caseId} ${trial.arm} #${trial.repeat}: ${trial.result.status}` +
+							(trial.mismatches.length
+								? ` (期待値との差 ${trial.mismatches.length}件)`
+								: ""),
+					),
+			},
+		);
 		console.log(JSON.stringify({ directory, ...result }, null, "\t"));
 		process.exitCode = result.interrupted ? 1 : result.mismatched ? 2 : 0;
 	} finally {

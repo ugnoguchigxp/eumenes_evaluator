@@ -1,4 +1,5 @@
-import { isAbsolute, relative, resolve, dirname } from "node:path";
+import { isAbsolute, relative, resolve, dirname, sep } from "node:path";
+import { realpath, stat } from "node:fs/promises";
 import { z } from "zod";
 import {
 	MAX_INPUT_BYTES,
@@ -29,18 +30,20 @@ const expectationSchema = z.strictObject({
 		z.enum(["satisfied", "violated", "unverified"]),
 	),
 });
-const depthArms = [
+const defaultDepthArms = [
 	"scoped-quick",
 	"context-quick",
 	"recheck",
 	"standard",
 ] as const;
+const depthArms = [...defaultDepthArms, "codex-sdk", "codex-bare"] as const;
 const caseSchema = z.strictObject({
 	id: z.string().regex(/^[a-z0-9-]+$/),
 	group: z.string().min(1),
 	request: z.string().min(1),
 	arms: z.array(z.enum(comparisonArms)).min(1).max(4).optional(),
 	scope: z.string().min(1).optional(),
+	depthArms: z.array(z.enum(depthArms)).min(1).max(depthArms.length).optional(),
 	expected: expectationSchema.extend({ defects: z.array(defectSchema) }),
 	expectedWithoutAdditional: expectationSchema.optional(),
 	notes: z.string().min(1),
@@ -76,11 +79,12 @@ function assertUnique(items: string[], message: string) {
 }
 
 async function checkCase(item: Case) {
-	const { id, input, arms, expected } = item;
+	const { id, input, arms, depthArms, selection, expected } = item;
 	const workflow = input.target.kind === "workflow";
-	if (item.selection ? !!arms : workflow === !!arms)
+	if (selection ? !!arms : workflow === !!arms || !!depthArms)
 		throw new Error(`${id} の比較構成が対象の種類と一致しません`);
 	assertUnique(arms ?? [], `${id} の比較構成が重複しています`);
+	assertUnique(depthArms ?? [], `${id} の深度比較構成が重複しています`);
 	assertUnique(
 		expected.defects.map((defect) => defect.id),
 		`${id} の既知の問題 ID が重複しています`,
@@ -158,16 +162,19 @@ async function checkCase(item: Case) {
 
 async function readSuiteFile(directory: string, file: string) {
 	const filePath = resolve(directory, file);
-	const withinSuite = relative(directory, filePath);
-	if (
-		!withinSuite ||
-		withinSuite === ".." ||
-		withinSuite.startsWith("../") ||
-		isAbsolute(file)
-	) {
+	const isWithinSuite = (candidate: string) => {
+		const within = relative(directory, candidate);
+		return (
+			within !== "" && !isAbsolute(within) && within.split(sep)[0] !== ".."
+		);
+	};
+	if (isAbsolute(file) || !isWithinSuite(filePath)) {
 		throw new Error(`スイート内の相対パスを指定してください (${file})`);
 	}
-	return readJson(filePath);
+	const actual = await realpath(filePath);
+	if (!isWithinSuite(actual) || !(await stat(actual)).isFile())
+		throw new Error(`スイート内の通常ファイルを指定してください (${file})`);
+	return readJson(actual);
 }
 
 export async function loadSuite(path: string): Promise<Case[]> {
@@ -176,7 +183,7 @@ export async function loadSuite(path: string): Promise<Case[]> {
 		suite.cases.map((item) => item.id),
 		"ケース ID が重複しています",
 	);
-	const directory = dirname(resolve(path));
+	const directory = await realpath(dirname(resolve(path)));
 	const cases: Case[] = [];
 	for (const item of suite.cases) {
 		const input = requestSchema.parse(
@@ -201,7 +208,7 @@ export function trialInput(item: Case, arm: Arm): EvaluationRequest {
 export function trialOptions(item: Case, arm: Arm) {
 	const selection = item.selection;
 	if (!selection) return {};
-	if (arm === "context-quick") {
+	if (arm === "context-quick" || arm === "codex-sdk" || arm === "codex-bare") {
 		const initial = [
 			...new Set([
 				...(selection.evidence?.initial ?? []),
@@ -219,7 +226,32 @@ export function trialOptions(item: Case, arm: Arm) {
 }
 
 function caseArms(item: Case): readonly Arm[] {
-	return item.selection ? depthArms : (item.arms ?? ["workflow"]);
+	return item.selection
+		? (item.depthArms ?? defaultDepthArms)
+		: (item.arms ?? ["workflow"]);
+}
+
+export function withCodexSdk(
+	cases: Case[],
+	comparison: "mixed" | "sdk-low" = "mixed",
+): Case[] {
+	return cases.map((item) => {
+		if (!item.selection)
+			throw new Error(`${item.id} の SDK 比較には範囲指定が必要です`);
+		if (comparison === "sdk-low")
+			return {
+				...item,
+				depthArms: ["context-quick", "standard", "codex-bare"],
+			};
+		const arms = new Set<(typeof depthArms)[number]>(
+			item.depthArms ?? defaultDepthArms,
+		);
+		arms.add("codex-sdk");
+		return {
+			...item,
+			depthArms: [...arms],
+		};
+	});
 }
 
 export function schedule(cases: Case[], repeats: number): Trial[] {

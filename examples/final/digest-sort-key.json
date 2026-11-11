@@ -1,0 +1,65 @@
+{
+	"contractVersion": 1,
+	"evaluationId": "digest-sort-key",
+	"rubric": {
+		"id": "code-correctness",
+		"version": 1
+	},
+	"target": {
+		"kind": "code",
+		"id": "digest-sort-key",
+		"version": "2",
+		"base": "ede0c29cdf4b1915df1b710cf95bbd100fcc9d8a",
+		"head": "6c78de8755d47767680f1670f4737f2df6b2ce10",
+		"changes": [
+			{
+				"id": "edit-1",
+				"path": "src/digest-view.ts",
+				"before": {
+					"startLine": 10,
+					"text": "return [...rows].sort((left, right) => left.name.localeCompare(right.name));\n"
+				},
+				"after": {
+					"startLine": 10,
+					"text": "return [...rows].sort((left, right) => right.updatedAt - left.updatedAt);\n"
+				}
+			}
+		],
+		"digest": "887c45637fb5d4cc087b5ec687fc0e8f37006bfcb18d728a739bc535eef51a12",
+		"diffDigest": "7ec8c9ef653b25aaebe2fc1a7192db9904e59c7ad41c5078809fdefb3ce7c070"
+	},
+	"scope": [
+		"edit-1:base",
+		"edit-1:head"
+	],
+	"evidence": [],
+	"originalRequest": "運用ダイジェストの並べ方を変更する。",
+	"conditions": {
+		"state": "available",
+		"revision": "2",
+		"entries": [
+			{
+				"id": "acceptance",
+				"text": "運用ダイジェストの行は名前の昇順。最終更新時刻による並べ替えを行わない。",
+				"status": "confirmed",
+				"appliesTo": {
+					"id": "digest-sort-key",
+					"version": "2",
+					"digest": "887c45637fb5d4cc087b5ec687fc0e8f37006bfcb18d728a739bc535eef51a12"
+				},
+				"sources": [
+					{
+						"id": "release:acceptance",
+						"version": "2",
+						"active": true
+					}
+				]
+			}
+		]
+	},
+	"limits": {
+		"timeoutMs": 120000,
+		"maxInputBytes": 24000,
+		"maxOutputTokens": 4096
+	}
+}

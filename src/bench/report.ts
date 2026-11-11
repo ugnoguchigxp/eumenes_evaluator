@@ -75,6 +75,18 @@ export function summarize(trials: RecordedTrial[]) {
 							([status, matching]) => [status, matching.length],
 						),
 					),
+					issues: Object.fromEntries(
+						[
+							...Map.groupBy(
+								rows.flatMap(({ result }) => result.issues),
+								({ code }) => code,
+							),
+						].map(([code, matching]) => [code, matching.length]),
+					),
+					rejected: rows.reduce(
+						(sum, { result }) => sum + result.rejected.length,
+						0,
+					),
 					findings: rows.reduce(
 						(sum, row) => sum + row.result.findings.length,
 						0,
@@ -166,6 +178,7 @@ export function score(trials: ScorableTrial[], cases: Case[], input: unknown) {
 				arm,
 				{
 					trials: rows.length,
+					caseIds: [...new Set(rows.map(({ caseId }) => caseId))].sort(),
 					known,
 					detected,
 					recall: known ? detected / known : null,
@@ -183,6 +196,10 @@ export function score(trials: ScorableTrial[], cases: Case[], input: unknown) {
 		["D", "C"],
 		["scoped-quick", "standard"],
 		["context-quick", "standard"],
+		["context-quick", "codex-sdk"],
+		["standard", "codex-sdk"],
+		["codex-bare", "context-quick"],
+		["codex-bare", "standard"],
 		["recheck", "standard"],
 	] as const;
 	const paired = Object.fromEntries(

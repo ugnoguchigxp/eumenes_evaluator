@@ -5,10 +5,8 @@ import {
 	locationSchema,
 	modelOutputSchema,
 	type Evidence,
-	type ReviewEvidence,
 	type ModelResponse,
 } from "./contracts";
-import { locationExists } from "./snapshot";
 
 export const reviewDepths = ["quick", "recheck", "standard"] as const;
 export type ReviewDepth = (typeof reviewDepths)[number];
@@ -46,6 +44,13 @@ export const verificationInstructions = [
 	"openQuestions の各 questionId を questionChecks に一度ずつ返してください。許可された証拠の位置を引用して解決できる場合は resolved、資料不足や判断不能の場合は unverified としてください。",
 ].join("\n");
 
+export const standardEvidenceInstructions = {
+	investigation:
+		"判定を左右する設定値や規則は、対象の参照先をたどって確認できる定義を優先して取得してください。似た名前の候補がある場合は、対象がどの定義を使うかを識別できる資料も選んでください。",
+	verification:
+		"設定値や規則は、資料内の参照名・解決規則などをたどって照合してください。そのつながりで適用先が特定できれば、根拠として使えます。別の処理や版の定義は代用せず、判定に必要な参照先の定義が見つからなければ、該当する条件または範囲を unverified とし、その定義を前提とした指摘を出さないでください。",
+};
+
 export function readInvestigation(text: string) {
 	if (Buffer.byteLength(text) > MAX_RESPONSE_BYTES) return;
 	try {
@@ -66,43 +71,34 @@ export function registerQuestions(questions: string[]): ReviewQuestion[] {
 	}));
 }
 
-export function settleQuestions(
-	questions: ReviewQuestion[],
-	checks: QuestionCheck[],
-	evidence: ReadonlyMap<string, ReviewEvidence>,
-): ReviewQuestion[] | undefined {
-	const known = new Set(questions.map((item) => item.questionId));
-	const byId = new Map(checks.map((item) => [item.questionId, item]));
-	if (
-		byId.size !== checks.length ||
-		checks.some(
-			(item) =>
-				!known.has(item.questionId) ||
-				(item.status === "resolved" && item.evidence.length === 0) ||
-				!item.evidence.every((location) => locationExists(evidence, location)),
-		)
-	)
-		return;
-	return questions.map((item) => ({ ...item, ...byId.get(item.questionId) }));
-}
-
 export function acquireEvidence(
 	plan: NonNullable<ReturnType<typeof readInvestigation>>,
 	catalog: Map<string, Evidence>,
-	seen: ReadonlyMap<string, ReviewEvidence>,
+	seen: ReadonlyMap<string, unknown>,
+	required: readonly string[],
 ) {
 	const requested = [
 		...new Set(plan.requests.map(({ evidenceId }) => evidenceId)),
 	];
 	const acquired: Evidence[] = [];
 	const unavailable: string[] = [];
+	const requiredAcquired: string[] = [];
+	const requestedIds = new Set(requested);
 	for (const id of requested) {
 		if (seen.has(id)) continue;
 		const item = catalog.get(id);
 		if (item) acquired.push(item);
 		else unavailable.push(id);
 	}
-	return { requested, acquired, unavailable };
+	for (const id of required) {
+		if (seen.has(id) || requestedIds.has(id)) continue;
+		const item = catalog.get(id);
+		if (item) {
+			acquired.push(item);
+			requiredAcquired.push(id);
+		}
+	}
+	return { requested, acquired, unavailable, requiredAcquired };
 }
 
 export type ReviewStage = {
@@ -115,6 +111,7 @@ export type ReviewStage = {
 	requested?: string[];
 	questions?: Array<{ evidenceId: string; question: string }>;
 	acquired?: string[];
+	requiredAcquired?: string[];
 	unavailable?: string[];
 };
 

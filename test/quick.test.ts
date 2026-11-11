@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { fileURLToPath } from "node:url";
 import {
 	comparisonRequest,
@@ -260,7 +260,11 @@ describe("固定したコード差分", () => {
 				]);
 			}),
 		});
-		expect(result.status).toBe("completed");
+		expect(result.status).toBe("incomplete");
+		expect(result.issues).toEqual([
+			{ code: "condition_target_mismatch", detail: "other" },
+			{ code: "condition_target_mismatch", detail: "other-version" },
+		]);
 		expect(result.conditionRevision).toBe("s4");
 		expect(result.findings).toEqual(output.findings);
 	});
@@ -343,8 +347,9 @@ describe("出力の照合と実行制限", () => {
 				],
 			};
 			const result = await evaluate(request, { model: fixed(output) });
-			expect(result.status).toBe("failed");
-			expect(result.issues[0]?.code).toBe("invalid_model_references");
+			expect(result.status).toBe("incomplete");
+			expect(result.issues[0]?.code).toBe("model_output_partially_rejected");
+			expect(result.rejected).toHaveLength(1);
 			expect(result.findings).toEqual([]);
 		}
 	});
@@ -381,7 +386,7 @@ describe("出力の照合と実行制限", () => {
 		};
 		expect(
 			(await evaluate(request, { model: fixed(output) })).issues[0]?.code,
-		).toBe("invalid_model_references");
+		).toBe("model_output_partially_rejected");
 	});
 
 	test("期限超過と取消はモデルが応答しなくても終了する", async () => {
@@ -462,7 +467,7 @@ test("Workflow の JSON Pointer を使って確定条件を照合する", async 
 		output.conditionChecks[0]!.evidence[0]!.pointer = pointer;
 		expect(
 			(await evaluate(request, { model: fixed(output) })).issues[0]?.code,
-		).toBe("invalid_model_references");
+		).toBe("model_output_partially_rejected");
 	}
 });
 
@@ -546,5 +551,234 @@ test("HTTP アダプターは一回の構造化推論で利用量を取得する
 		});
 	} finally {
 		server.stop(true);
+	}
+});
+
+test("適用版違いの確定条件を報告し、訂正・撤回は記録だけに残す", async () => {
+	const request = codeRequest();
+	const stale = condition(request, "stale", "旧版の条件");
+	stale.appliesTo.version = "r1";
+	const withdrawn = {
+		...condition(request, "withdrawn", "撤回済み"),
+		status: "withdrawn" as const,
+	};
+	const superseded = {
+		...condition(request, "superseded", "訂正済み"),
+		status: "superseded" as const,
+	};
+	request.conditions = {
+		state: "available",
+		revision: "r2",
+		entries: [stale, withdrawn, superseded],
+	};
+	const model = fixed(checked(...request.scope), ({ prompt }) => {
+		expect(JSON.parse(prompt).conditions).toEqual([]);
+	});
+	const result = await evaluate(request, { model });
+	expect(result.status).toBe("incomplete");
+	expect(result.issues).toEqual([
+		{ code: "condition_target_mismatch", detail: "stale" },
+	]);
+	expect(result.conditionSelection).toEqual({
+		applied: [],
+		excluded: [
+			{ id: "stale", reason: "target_mismatch" },
+			{ id: "withdrawn", reason: "not_confirmed" },
+			{ id: "superseded", reason: "not_confirmed" },
+		],
+	});
+	request.conditions.entries.shift();
+	const corrected = await evaluate(request, { model });
+	expect(corrected.status).toBe("completed");
+	expect(corrected.conditionSelection.excluded).toHaveLength(2);
+});
+
+test("不正な根拠の指摘だけ除外して正しい指摘を残す", async () => {
+	const request = codeRequest();
+	const good = {
+		title: "指摘",
+		problem: "バッチ上限を超える",
+		trigger: "処理時",
+		impact: "処理失敗",
+		severity: "medium" as const,
+		primary: location,
+		evidence: [],
+		conditionId: null,
+	};
+	const result = await evaluate(request, {
+		model: fixed({
+			...checked(...request.scope),
+			findings: [
+				good,
+				{ ...good, evidence: [{ ...location, startLine: 9, endLine: 9 }] },
+			],
+		}),
+	});
+	expect(result.status).toBe("incomplete");
+	expect(result.findings).toEqual([good]);
+	expect(result.rejected).toEqual([
+		{ kind: "findings", index: 1, reason: "finding_location_unavailable" },
+	]);
+});
+
+test("確認結果の重複・未知IDと条件違反の矛盾を項目単位で扱う", async () => {
+	const request = codeRequest();
+	request.conditions = {
+		state: "available",
+		revision: "r1",
+		entries: [
+			"valid",
+			"missing-finding",
+			"conflict",
+			"no-evidence",
+			"duplicate",
+			"bad-reference",
+		].map((id) => condition(request, id, "条件")),
+	};
+	const good = {
+		title: "指摘",
+		problem: "条件違反",
+		trigger: "処理時",
+		impact: "処理失敗",
+		severity: "medium" as const,
+		primary: location,
+		evidence: [],
+		conditionId: "valid",
+	};
+	const check = (
+		conditionId: string,
+		status: "satisfied" | "violated",
+		evidence = [location],
+	) => ({ conditionId, status, evidence, reason: "判定" });
+	const complete = checked(...request.scope);
+	const result = await evaluate(request, {
+		model: fixed({
+			findings: [
+				good,
+				{ ...good, conditionId: "conflict" },
+				{ ...good, conditionId: "no-evidence" },
+				{ ...good, conditionId: "unknown" },
+				{ ...good, conditionId: "bad-reference" },
+			],
+			scopeChecks: [
+				...complete.scopeChecks,
+				complete.scopeChecks[0],
+				{ evidenceId: request.scope[1], status: "unverified", reason: "不明" },
+				{ evidenceId: "unknown", status: "checked", reason: null },
+			],
+			conditionChecks: [
+				check("valid", "violated"),
+				check("valid", "violated"),
+				check("missing-finding", "violated"),
+				check("conflict", "satisfied"),
+				check("no-evidence", "violated", []),
+				check("duplicate", "satisfied"),
+				check("duplicate", "violated"),
+				check("unknown", "satisfied"),
+				check("bad-reference", "violated", [{ ...location, endLine: 9 }]),
+			],
+		}),
+	});
+	expect(result.status).toBe("incomplete");
+	expect(result.findings).toEqual([good]);
+	expect(result.scopeChecks.map((check) => check.status)).toEqual([
+		"checked",
+		"unverified",
+	]);
+	expect(result.conditionChecks.map((check) => check.status)).toEqual([
+		"violated",
+		"unverified",
+		"unverified",
+		"unverified",
+		"unverified",
+		"unverified",
+	]);
+	expect(
+		result.rejected.map(({ kind, index }) => `${kind}:${index}`).sort(),
+	).toEqual(
+		[
+			"scopeChecks:1",
+			"scopeChecks:3",
+			"scopeChecks:4",
+			"conditionChecks:2",
+			"conditionChecks:3",
+			"conditionChecks:4",
+			"conditionChecks:5",
+			"conditionChecks:6",
+			"conditionChecks:7",
+			"conditionChecks:8",
+			"findings:1",
+			"findings:2",
+			"findings:3",
+			"findings:4",
+		].sort(),
+	);
+});
+
+test("HTTP の認証・制限・障害・切断・拒否・不正応答を区別する", async () => {
+	const cases = [
+		[() => new Response("private", { status: 401 }), "auth"],
+		[() => new Response("private", { status: 429 }), "rate_limited"],
+		[() => new Response("private", { status: 503 }), "unavailable"],
+		[
+			() =>
+				Response.json({
+					choices: [
+						{ finish_reason: "length", message: { content: "private" } },
+					],
+				}),
+			"truncated",
+		],
+		[
+			() =>
+				Response.json({
+					choices: [
+						{ finish_reason: "content_filter", message: { content: null } },
+					],
+				}),
+			"refused",
+		],
+		[() => new Response("private"), "invalid_response"],
+	] as const;
+	const originalFetch = globalThis.fetch;
+	try {
+		for (const [reply, detail] of cases) {
+			globalThis.fetch = Object.assign(async () => reply(), {
+				preconnect: originalFetch.preconnect,
+			});
+			const result = await evaluate(codeRequest(), {
+				model: httpModel("http://127.0.0.1/", "fixture", "private"),
+			});
+			expect(result.status).toBe("failed");
+			expect(result.issues).toEqual([{ code: "model_request_failed", detail }]);
+			expect(JSON.stringify(result)).not.toContain("private");
+		}
+	} finally {
+		globalThis.fetch = originalFetch;
+	}
+	expect(() => httpModel("file:///tmp/test", "fixture")).toThrow();
+	expect(() =>
+		httpModel("https://user:pass@host.invalid/", "fixture"),
+	).toThrow();
+	expect(() =>
+		httpModel("http://host.invalid/", "fixture", "private"),
+	).toThrow();
+	expect(() =>
+		httpModel("http://127.0.0.1/", "fixture", "private"),
+	).not.toThrow();
+});
+
+test("入力を検証している間に期限が尽きたときは推論を開始しない", async () => {
+	const request = codeRequest();
+	const time = spyOn(performance, "now").mockReturnValue(3_000);
+	time.mockReturnValueOnce(0);
+	const calls = noCall();
+	try {
+		const result = await evaluate(request, { model: calls.model });
+		expect(result.status).toBe("expired");
+		expect(result.issues).toEqual([{ code: "deadline_exceeded" }]);
+		calls.assert();
+	} finally {
+		time.mockRestore();
 	}
 });
