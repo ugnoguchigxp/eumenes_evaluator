@@ -1,0 +1,73 @@
+{
+	"contractVersion": 1,
+	"evaluationId": "policy-team",
+	"rubric": {
+		"id": "workflow-correctness",
+		"version": 1
+	},
+	"target": {
+		"id": "policy-team",
+		"version": "1",
+		"digest": "29775c9a202b30702c169d8916bae7d85cdeee4a50334e42956a0c14d3aebc09",
+		"kind": "workflow",
+		"document": {
+			"inputs": {
+				"dataset": "weekly-sales"
+			},
+			"steps": [
+				{
+					"id": "summarize",
+					"kind": "aggregate",
+					"input": "weekly-sales"
+				}
+			],
+			"publish": {
+				"kind": "report",
+				"audience": "policy",
+				"policyRef": "publication-policy"
+			}
+		}
+	},
+	"scope": ["workflow", "publication-policy"],
+	"evidence": [
+		{
+			"kind": "json",
+			"id": "publication-policy",
+			"version": "1",
+			"document": {
+				"id": "publication-policy",
+				"defaultAudience": "team"
+			},
+			"clipped": false
+		}
+	],
+	"originalRequest": "ワークフローの出力が公開条件に沿うことを確認する。",
+	"conditions": {
+		"state": "available",
+		"revision": "2",
+		"entries": [
+			{
+				"id": "audience",
+				"text": "参照ポリシーを適用した結果がチーム内公開になることを確認する。",
+				"status": "confirmed",
+				"appliesTo": {
+					"id": "policy-team",
+					"version": "1",
+					"digest": "29775c9a202b30702c169d8916bae7d85cdeee4a50334e42956a0c14d3aebc09"
+				},
+				"sources": [
+					{
+						"id": "fixture:audience",
+						"version": "1",
+						"active": true
+					}
+				]
+			}
+		]
+	},
+	"limits": {
+		"timeoutMs": 120000,
+		"maxInputBytes": 24000,
+		"maxOutputTokens": 4096
+	}
+}

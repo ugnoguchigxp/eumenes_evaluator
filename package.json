@@ -1,0 +1,25 @@
+{
+	"name": "eumenes-evaluator",
+	"version": "0.1.0",
+	"type": "module",
+	"packageManager": "bun@1.4.4",
+	"exports": "./src/index.ts",
+	"files": [
+		"src",
+		"examples",
+		"README.md"
+	],
+	"scripts": {
+		"quick": "bun src/cli.ts",
+		"typecheck": "bun check",
+		"verify": "bun run typecheck && bun test",
+		"bench": "bun src/bench/cli.ts"
+	},
+	"dependencies": {
+		"zod": "4.4.3"
+	},
+	"devDependencies": {
+		"@types/bun": "1.3.14",
+		"typescript": "7.0.2"
+	}
+}

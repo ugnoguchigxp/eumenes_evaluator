@@ -1,0 +1,79 @@
+{
+	"contractVersion": 1,
+	"evaluationId": "export-columns",
+	"rubric": {
+		"id": "code-correctness",
+		"version": 1
+	},
+	"target": {
+		"kind": "code",
+		"id": "export-columns",
+		"version": "2",
+		"base": "b851600f34598d9fc4f0cc29ed2ecba2f5e69477",
+		"head": "97332ac30822f0d6c2f9465020970cb1a3c89367",
+		"changes": [
+			{
+				"id": "edit",
+				"path": "export.ts",
+				"before": {
+					"startLine": 1,
+					"text": "export const columns = [\"id\", \"title\"];\n"
+				},
+				"after": {
+					"startLine": 1,
+					"text": "export const columns = [\"id\", \"title\", \"state\"];\n"
+				}
+			}
+		],
+		"digest": "0f7bd4e4047b9383fcf4aca677d695e4e00dd4aebb6b7ff9e634462c7184847a",
+		"diffDigest": "762be104347900ec74d50d6cac4bf4c88f33fc4a86cf9e2dda42e527cd1f422c"
+	},
+	"scope": ["edit:base", "edit:head"],
+	"evidence": [],
+	"originalRequest": "内部向け一覧の出力列を見直す。",
+	"conditions": {
+		"state": "available",
+		"revision": "3",
+		"entries": [
+			{
+				"id": "old-columns",
+				"text": "出力は id と title の2列。",
+				"status": "withdrawn",
+				"appliesTo": {
+					"id": "export-columns",
+					"version": "2",
+					"digest": "0f7bd4e4047b9383fcf4aca677d695e4e00dd4aebb6b7ff9e634462c7184847a"
+				},
+				"sources": [
+					{
+						"id": "fixture:old-columns",
+						"version": "1",
+						"active": true
+					}
+				]
+			},
+			{
+				"id": "keep-title",
+				"text": "title 列を維持する。",
+				"status": "confirmed",
+				"appliesTo": {
+					"id": "export-columns",
+					"version": "2",
+					"digest": "0f7bd4e4047b9383fcf4aca677d695e4e00dd4aebb6b7ff9e634462c7184847a"
+				},
+				"sources": [
+					{
+						"id": "fixture:keep-title",
+						"version": "1",
+						"active": true
+					}
+				]
+			}
+		]
+	},
+	"limits": {
+		"timeoutMs": 120000,
+		"maxInputBytes": 24000,
+		"maxOutputTokens": 4096
+	}
+}

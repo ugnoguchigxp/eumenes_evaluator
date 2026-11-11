@@ -1,0 +1,62 @@
+{
+	"contractVersion": 1,
+	"evaluationId": "report-format",
+	"rubric": {
+		"id": "code-correctness",
+		"version": 1
+	},
+	"target": {
+		"kind": "code",
+		"id": "report-format",
+		"version": "2",
+		"base": "d180258fbcda78c16213293da92c7ea38947e376",
+		"head": "0e9d8cb8d9b69bfdeb4282f6ceaa206b4247199e",
+		"changes": [
+			{
+				"id": "edit",
+				"path": "report.ts",
+				"before": {
+					"startLine": 4,
+					"text": "export const format = \"json\";\n"
+				},
+				"after": {
+					"startLine": 4,
+					"text": "export const format = \"csv\";\n"
+				}
+			}
+		],
+		"digest": "ed34dd7da832cff9ccc490f788765b30e1e3d4e781b0abf1f4a332aa73c0eda7",
+		"diffDigest": "35838f2737997f64deeba7e53753dde7b65cb5d4c2138e52795f55eadbc1cfcf"
+	},
+	"scope": ["edit:base", "edit:head"],
+	"evidence": [],
+	"originalRequest": "連携先は JSON のみ対応するため、出力形式は JSON のままにしてください。",
+	"conditions": {
+		"state": "available",
+		"revision": "2",
+		"entries": [
+			{
+				"id": "format",
+				"text": "出力形式は JSON のままにする。",
+				"status": "confirmed",
+				"appliesTo": {
+					"id": "report-format",
+					"version": "2",
+					"digest": "ed34dd7da832cff9ccc490f788765b30e1e3d4e781b0abf1f4a332aa73c0eda7"
+				},
+				"sources": [
+					{
+						"id": "fixture:format",
+						"version": "1",
+						"active": true
+					}
+				]
+			}
+		]
+	},
+	"limits": {
+		"timeoutMs": 120000,
+		"maxInputBytes": 24000,
+		"maxOutputTokens": 4096
+	}
+}

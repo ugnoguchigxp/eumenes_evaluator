@@ -1,0 +1,54 @@
+{
+	"contractVersion": 1,
+	"evaluationId": "receipt-rename",
+	"rubric": {
+		"id": "code-correctness",
+		"version": 1
+	},
+	"target": {
+		"kind": "code",
+		"id": "receipt-rename",
+		"version": "2",
+		"base": "69a8f16b0c727342743d66c2a94e245c9ca520d8",
+		"head": "c97b43f46f746a562537e01038c54c1618e0a1ad",
+		"changes": [
+			{
+				"id": "edit",
+				"path": "receipts.ts",
+				"before": {
+					"startLine": 3,
+					"text": "export const toReceipt = (id: string) => ({ id });\n"
+				},
+				"after": {
+					"startLine": 3,
+					"text": "export const createReceipt = (id: string) => ({ id });\n"
+				}
+			},
+			{
+				"id": "caller",
+				"path": "worker.ts",
+				"before": {
+					"startLine": 1,
+					"text": "import { toReceipt } from \"./receipts\";\nexport const run = (id: string) => toReceipt(id);\n"
+				},
+				"after": {
+					"startLine": 1,
+					"text": "import { createReceipt } from \"./receipts\";\nexport const run = (id: string) => createReceipt(id);\n"
+				}
+			}
+		],
+		"digest": "3394b7b49abd00529a784556439b98a01ffd112e5000285aa56e692ffed3f7de",
+		"diffDigest": "8c331c0bf5f7edb545226c1d1b4f4c277612d4ec8cd83525a22619bcacf4d05b"
+	},
+	"scope": ["edit:base", "edit:head", "caller:base", "caller:head"],
+	"evidence": [],
+	"originalRequest": "非公開モジュール内の関数を改名する。",
+	"conditions": {
+		"state": "none"
+	},
+	"limits": {
+		"timeoutMs": 120000,
+		"maxInputBytes": 24000,
+		"maxOutputTokens": 4096
+	}
+}

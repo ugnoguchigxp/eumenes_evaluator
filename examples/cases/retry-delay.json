@@ -1,0 +1,53 @@
+{
+	"contractVersion": 1,
+	"evaluationId": "retry-delay",
+	"rubric": {
+		"id": "code-correctness",
+		"version": 1
+	},
+	"target": {
+		"kind": "code",
+		"id": "retry-delay",
+		"version": "2",
+		"base": "819cd028bba8f030a845db9229ad65d57bc2e432",
+		"head": "87354350e716b5f61644002d0e8f6e4599909108",
+		"changes": [
+			{
+				"id": "edit",
+				"path": "retry.ts",
+				"before": {
+					"startLine": 8,
+					"text": "const delayMs = delaySeconds * 1000;\n"
+				},
+				"after": {
+					"startLine": 8,
+					"text": "const delayMs = delaySeconds;\n"
+				}
+			}
+		],
+		"digest": "1d7851ba06191cf6dbc902c62a79cfd14bd4ca0be19a0446c7cd0aaa314908c4",
+		"diffDigest": "9ba4aa6d0178485b7cb2e68d06c320d1210b54dfe2c97bf3c7e6111f56a562d0"
+	},
+	"scope": ["edit:base", "edit:head", "timer"],
+	"evidence": [
+		{
+			"kind": "lines",
+			"id": "timer",
+			"version": "87354350e716b5f61644002d0e8f6e4599909108",
+			"path": "retry.ts",
+			"side": "head",
+			"startLine": 9,
+			"text": "return setTimeout(callback, delayMs);\n",
+			"clipped": false
+		}
+	],
+	"originalRequest": "リトライ処理の内部を整理する。",
+	"conditions": {
+		"state": "none"
+	},
+	"limits": {
+		"timeoutMs": 120000,
+		"maxInputBytes": 24000,
+		"maxOutputTokens": 4096
+	}
+}

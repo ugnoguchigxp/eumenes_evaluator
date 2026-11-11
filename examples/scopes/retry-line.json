@@ -1,0 +1,20 @@
+{
+	"version": 1,
+	"targetId": "retry-delay",
+	"targetVersion": "2",
+	"targetDigest": "1d7851ba06191cf6dbc902c62a79cfd14bd4ca0be19a0446c7cd0aaa314908c4",
+	"include": [
+		{
+			"kind": "lines",
+			"path": "retry.ts",
+			"side": "head",
+			"startLine": 8,
+			"endLine": 8
+		}
+	],
+	"evidence": {
+		"allowed": ["timer"],
+		"required": ["timer"]
+	},
+	"focus": "リトライ時間の単位が呼出し先と一致するか確認する。"
+}

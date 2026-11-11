@@ -1,0 +1,18 @@
+{
+	"version": 1,
+	"targetId": "policy-public",
+	"targetVersion": "1",
+	"targetDigest": "29775c9a202b30702c169d8916bae7d85cdeee4a50334e42956a0c14d3aebc09",
+	"include": [
+		{
+			"kind": "pointer",
+			"pointer": "/publish"
+		}
+	],
+	"conditionIds": ["audience"],
+	"evidence": {
+		"allowed": ["publication-policy"],
+		"required": ["publication-policy"]
+	},
+	"focus": "公開範囲を決める参照ポリシーと、チーム内公開の条件を照合する。"
+}

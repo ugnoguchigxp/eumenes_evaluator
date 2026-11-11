@@ -1,0 +1,85 @@
+{
+	"version": 1,
+	"cases": [
+		{
+			"id": "retry-line",
+			"group": "scoped-code",
+			"request": "cases/retry-delay.json",
+			"scope": "scopes/retry-line.json",
+			"expected": {
+				"status": "completed",
+				"conditions": {},
+				"defects": [
+					{
+						"id": "retry-unit",
+						"description": "delaySeconds=2 が2msとしてタイマーに渡る。計算行と許可された呼出し元で照合できる。",
+						"severity": "medium",
+						"evidence": {
+							"evidenceId": "edit:head",
+							"startLine": 8,
+							"endLine": 8,
+							"pointer": null
+						}
+					}
+				]
+			},
+			"expectedWithoutAdditional": {
+				"status": "incomplete",
+				"conditions": {}
+			},
+			"notes": "呼出し元は補足資料。主根拠は選択した retry.ts の8行目だけ。"
+		},
+		{
+			"id": "policy-public",
+			"group": "scoped-workflow",
+			"request": "cases/policy-public.json",
+			"scope": "scopes/policy-public.json",
+			"expected": {
+				"status": "completed",
+				"conditions": {
+					"audience": "violated"
+				},
+				"defects": [
+					{
+						"id": "policy-audience",
+						"description": "選択した公開設定は publication-policy を参照し、その defaultAudience が public のためチーム内公開の条件に反する。",
+						"severity": "high",
+						"evidence": {
+							"evidenceId": "workflow",
+							"startLine": null,
+							"endLine": null,
+							"pointer": "/publish/policyRef"
+						}
+					}
+				]
+			},
+			"expectedWithoutAdditional": {
+				"status": "incomplete",
+				"conditions": {
+					"audience": "unverified"
+				}
+			},
+			"notes": "初期資料には参照先の本文がない。根拠資料がある場合は設定とポリシーを結び付けて採点する。"
+		},
+		{
+			"id": "policy-team",
+			"group": "scoped-workflow",
+			"request": "cases/policy-team.json",
+			"scope": "scopes/policy-team.json",
+			"expected": {
+				"status": "completed",
+				"conditions": {
+					"audience": "satisfied"
+				},
+				"defects": []
+			},
+			"expectedWithoutAdditional": {
+				"status": "incomplete",
+				"conditions": {
+					"audience": "unverified"
+				}
+			},
+			"notes": "初期資料には参照先の本文がない。根拠資料がある場合は設定とポリシーを結び付けて採点する。"
+		}
+	]
+}

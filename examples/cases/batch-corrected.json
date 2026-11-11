@@ -1,0 +1,79 @@
+{
+	"contractVersion": 1,
+	"evaluationId": "batch-corrected",
+	"rubric": {
+		"id": "code-correctness",
+		"version": 1
+	},
+	"target": {
+		"kind": "code",
+		"id": "batch-settings",
+		"version": "example-v2",
+		"base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"head": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		"changes": [
+			{
+				"id": "batch-size",
+				"path": "queue.ts",
+				"before": {
+					"startLine": 1,
+					"text": "export const batchSize = 10;\n"
+				},
+				"after": {
+					"startLine": 1,
+					"text": "export const batchSize = 20;\n"
+				}
+			}
+		],
+		"digest": "97eda61d859a52eb42c53f0102deb757f082f2af8712dc369ce9d0b7d8d1d10e",
+		"diffDigest": "fc51608d81ee3798aa82443501dd08ca2d807221c3093a1a29f58b3c95aadc5b"
+	},
+	"scope": ["batch-size:base", "batch-size:head"],
+	"evidence": [],
+	"originalRequest": "キューの処理効率を改善してください。",
+	"conditions": {
+		"state": "available",
+		"revision": "3",
+		"entries": [
+			{
+				"id": "old-cap",
+				"text": "上限は10件。",
+				"status": "superseded",
+				"appliesTo": {
+					"id": "batch-settings",
+					"version": "example-v2",
+					"digest": "97eda61d859a52eb42c53f0102deb757f082f2af8712dc369ce9d0b7d8d1d10e"
+				},
+				"sources": [
+					{
+						"id": "fixture:old-cap",
+						"version": "1",
+						"active": true
+					}
+				]
+			},
+			{
+				"id": "new-cap",
+				"text": "現行の上限は20件。",
+				"status": "confirmed",
+				"appliesTo": {
+					"id": "batch-settings",
+					"version": "example-v2",
+					"digest": "97eda61d859a52eb42c53f0102deb757f082f2af8712dc369ce9d0b7d8d1d10e"
+				},
+				"sources": [
+					{
+						"id": "fixture:new-cap",
+						"version": "1",
+						"active": true
+					}
+				]
+			}
+		]
+	},
+	"limits": {
+		"timeoutMs": 120000,
+		"maxInputBytes": 24000,
+		"maxOutputTokens": 4096
+	}
+}

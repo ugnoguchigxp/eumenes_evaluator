@@ -1,0 +1,61 @@
+{
+	"contractVersion": 1,
+	"evaluationId": "workflow-team",
+	"rubric": {
+		"id": "workflow-correctness",
+		"version": 1
+	},
+	"target": {
+		"kind": "workflow",
+		"id": "workflow-team",
+		"version": "2",
+		"document": {
+			"inputs": {
+				"dataset": "weekly-sales"
+			},
+			"steps": [
+				{
+					"id": "summarize",
+					"kind": "aggregate",
+					"input": "weekly-sales"
+				}
+			],
+			"publish": {
+				"kind": "report",
+				"audience": "team"
+			}
+		},
+		"digest": "494be0d6dbf9227883fa75c57b9c32f2410e60089cd8bb14df2f16efb35d389e"
+	},
+	"scope": ["workflow"],
+	"evidence": [],
+	"originalRequest": "ワークフローの出力が公開条件に沿うことを確認する。",
+	"conditions": {
+		"state": "available",
+		"revision": "2",
+		"entries": [
+			{
+				"id": "audience",
+				"text": "公開範囲はチーム内に限定する。",
+				"status": "confirmed",
+				"appliesTo": {
+					"id": "workflow-team",
+					"version": "2",
+					"digest": "494be0d6dbf9227883fa75c57b9c32f2410e60089cd8bb14df2f16efb35d389e"
+				},
+				"sources": [
+					{
+						"id": "fixture:audience",
+						"version": "1",
+						"active": true
+					}
+				]
+			}
+		]
+	},
+	"limits": {
+		"timeoutMs": 120000,
+		"maxInputBytes": 24000,
+		"maxOutputTokens": 4096
+	}
+}

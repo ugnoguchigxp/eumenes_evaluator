@@ -1,0 +1,46 @@
+{
+	"findings": [
+		{
+			"title": "バッチ処理件数を合意上限に収める",
+			"problem": "設定値 20 が確定した上限 10 を超えています。",
+			"trigger": "このバッチ設定を使用した実行時",
+			"impact": "1 回の処理件数が合意範囲を超えます。",
+			"severity": "medium",
+			"primary": {
+				"evidenceId": "batch-size:head",
+				"startLine": 1,
+				"endLine": 1,
+				"pointer": null
+			},
+			"evidence": [],
+			"conditionId": "max-batch-size"
+		}
+	],
+	"scopeChecks": [
+		{
+			"evidenceId": "batch-size:base",
+			"status": "checked",
+			"reason": null
+		},
+		{
+			"evidenceId": "batch-size:head",
+			"status": "checked",
+			"reason": null
+		}
+	],
+	"conditionChecks": [
+		{
+			"conditionId": "max-batch-size",
+			"status": "violated",
+			"reason": "設定値は 20 です。",
+			"evidence": [
+				{
+					"evidenceId": "batch-size:head",
+					"startLine": 1,
+					"endLine": 1,
+					"pointer": null
+				}
+			]
+		}
+	]
+}
