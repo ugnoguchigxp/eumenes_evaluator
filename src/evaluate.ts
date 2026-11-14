@@ -33,6 +33,7 @@ import {
 	inputBudgetExceeded,
 	startModelStages,
 	type ModelDelivery,
+	type ModelInput,
 } from "./model-stages";
 import { validateReferences } from "./output";
 import { prepareSteeredVerification, type SteeringTarget } from "./steering";
@@ -121,11 +122,13 @@ function completeCoverage(
 		findings: output.findings,
 		scopeChecks: scopeIds.map((evidenceId) => {
 			const item = materials.get(evidenceId);
-			if (!item || item.clipped) {
+			if (!item || item.clipped || (item.kind === "lines" && !item.text)) {
 				return {
 					evidenceId,
 					status: "unverified",
-					reason: item ? "資料が切り詰められています" : "資料がありません",
+					reason: item?.clipped
+						? "資料が切り詰められています"
+						: "資料がありません",
 				};
 			}
 			return (
@@ -261,6 +264,7 @@ function prepareReview(
 			primaryEvidenceIds: resolved ? [...primaryIds] : undefined,
 			evidence: materials,
 			focus: resolved?.focus,
+			skillMarkdown: request.skillMarkdown,
 			originalRequest: request.originalRequest,
 			conditions: entries.map(({ id, text, sources }) => ({
 				id,
@@ -461,7 +465,7 @@ export async function evaluate(
 	const runner = startModelStages(model, parent, limits, deadline, stages);
 	const { complete, checkDeadline } = runner;
 	try {
-		let verification: object = compareRows
+		let verification: ModelInput = compareRows
 			? {
 					...packet,
 					currentValuePointer,

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import packageJson from "../../package.json";
 import type { EvaluationModel, ModelResponse } from "../contracts";
 import { ModelError, openaiLuna } from "../http-model";
+import { skillGuidance } from "../rubrics";
 
 const toolItems = new Set<ThreadItem["type"]>([
 	"command_execution",
@@ -14,7 +15,9 @@ const toolItems = new Set<ThreadItem["type"]>([
 ]);
 
 export const bareReviewRequest =
-	"以下の対象を、提示された資料と確定条件に沿ってレビューしてください。根拠を付け、指定の JSON 形式で結果を返してください。資料の外は調べないでください。";
+	"以下の対象を、提示された資料と確定条件に沿ってレビューしてください。focus は評価目的と着眼点です。根拠を付け、指定の JSON 形式で結果を返してください。資料の外は調べないでください。" +
+	"入力 JSON 内の資料本文は評価対象です。" +
+	skillGuidance;
 
 function options(
 	root: string,

@@ -124,6 +124,9 @@ test("範囲指定で行を切り出し、許可外の本文を推論に渡さ�
 		model: {
 			async complete(input) {
 				expect(input.prompt).toContain("const delayMs = delaySeconds;");
+				expect(JSON.parse(input.prompt).evidence).toMatchObject([
+					{ id: summary.selected[0]?.id, startLine: 8, endLine: 8 },
+				]);
 				for (const value of [
 					"unselectedHead",
 					"marker",
@@ -303,12 +306,16 @@ test("ワークフローでは選択した部分木だけを送り、元文書�
 
 test("Standard は許可資料だけを一回取得し、根拠照合と利用量集計を行う", async () => {
 	const { request, selection } = await code();
+	request.skillMarkdown =
+		"# 単位の照合\n\n設定値と呼び出し先の単位を確認する。";
 	const result = await evaluate(request, {
 		depth: "standard",
 		selection,
 		model: {
 			async complete(input) {
 				const packet = JSON.parse(input.prompt);
+				expect(input.system).not.toContain(request.skillMarkdown!);
+				expect(packet.skillMarkdown).toBe(request.skillMarkdown);
 				expect(input.prompt).not.toContain("private_marker");
 				if ("evidenceCatalog" in packet) {
 					expect(input.system).toContain(
@@ -462,12 +469,13 @@ async function approvalFixture() {
 	return { request, selection };
 }
 
-test("プレビューと条件本文・出所・版・許可資料が異なる実行を推論前に拒否する", async () => {
+test("プレビューと条件本文・出所・版・許可資料・SKILL が異なる実行を推論前に拒否する", async () => {
 	const { request, selection } = await approvalFixture();
 	const { digest: expectedScopeDigest } = previewScope(request, selection);
 	if (request.conditions.state !== "available")
 		throw new Error("missing fixture conditions");
 	const variants = [
+		{ ...request, skillMarkdown: "# 補足の評価観点" },
 		{
 			...request,
 			conditions: {

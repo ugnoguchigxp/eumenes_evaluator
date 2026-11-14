@@ -43,6 +43,7 @@ bun run quick examples/code-request.json --endpoint "$EVALUATOR_ENDPOINT" --mode
 - `targetDigests` に digest を除いた対象を渡すと、対象の digest と、コードの場合は変更一覧の digest が得られます。コード資料は固定したコミット対から用意し、Workflow の周辺資料は対象と同じ `version` を使います。
 - `scope` に確認が必要な資料 ID を列挙します。コードの変更箇所の ID は `changeEvidenceId(changeId, side)` で取得できます。通常は `<change-id>:base` または `<change-id>:head` で、長い ID にはハッシュを使います。確認対象は範囲指定後も最大1024件です。資料の不足・切り詰め・モデルの未回答は `unverified` になります。
 - 確定条件は有効な出所と対象の ID・版・digest を持つものを渡します。訂正済み・撤回済みの条件は入力の状態で示します。条件が存在しない場合は `none`、確認が必要な条件を取得できない場合は `unavailable` を指定します。結果の `conditionChecks` で、各条件の適合・違反・未確認と根拠を確認できます。
+- `skillMarkdown` に `SKILL.md` の本文を Markdown 文字列で指定すると、既存の基準に評価観点や手順を補えます。本文はモデルへの入力 JSON の最上位に入り、`evidence` や固定指示とは別に渡ります。参照先の内容が必要な場合は、呼び出し元が本文に含めてください。本文はリクエスト全体と各モデル呼び出しの入力サイズに算入されます。評価範囲、出力形式、根拠の要件、権限は Evaluator の契約に従います。
 
 ## 比較試験
 
@@ -96,7 +97,7 @@ bun run bench score <run-directory> <scores.json>
 
 ## 評価範囲を指定する
 
-範囲指定ファイルを用意し、固定した入力と組み合わせます。プレビューはモデルを呼ばず、選択した版、行・JSON Pointer、利用できる補足資料、選択した条件の版と digest を表示します。最上位の `digest` を確認し、以下の `SCOPE_DIGEST` に設定してください。対象、選択、許可資料、条件本文・出所・版のどれかが変わっていれば、推論前に停止します。
+範囲指定ファイルを用意し、固定した入力と組み合わせます。プレビューはモデルを呼ばず、選択した版、行・JSON Pointer、利用できる補足資料、選択した条件の版と digest を表示します。最上位の `digest` を確認し、以下の `SCOPE_DIGEST` に設定してください。対象、選択、許可資料、条件本文・出所・版、`skillMarkdown` のどれかが変わっていれば、推論前に停止します。
 
 ```sh
 bun run quick examples/cases/retry-delay.json --scope examples/scopes/retry-line.json --preview

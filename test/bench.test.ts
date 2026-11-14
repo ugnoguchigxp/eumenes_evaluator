@@ -1,9 +1,11 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
+import { Codex } from "@openai/codex-sdk";
 import { mkdir, mkdtemp, rm, stat, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+	evaluate,
 	fingerprint,
 	type EvaluationModel,
 	type ModelRequest,
@@ -16,6 +18,7 @@ import {
 } from "../src/investigation";
 import { scopedReviewInstructions } from "../src/rubrics";
 import { loadScorableRun } from "../src/bench/archive";
+import { bareReviewRequest, codexSdkLunaModel } from "../src/bench/codex-sdk";
 import { score, type RecordedTrial } from "../src/bench/report";
 import { runSuite } from "../src/bench/run";
 import {
@@ -30,6 +33,57 @@ import {
 const path = (relative: string) =>
 	fileURLToPath(new URL(relative, import.meta.url));
 const suite = () => loadSuite(path("../examples/suite.json"));
+
+test("Codex SDK は通常と bare の両方で SKILL をユーザー入力として送る", async () => {
+	const [item] = await suite();
+	const skillMarkdown = "# 確認手順\n\n変更前後の操作結果を照合する。";
+	const startThread = spyOn(Codex.prototype, "startThread");
+	const originalKey = Bun.env.OPEN_AI_API_KEY;
+	Bun.env.OPEN_AI_API_KEY = "fixture";
+	const sent: unknown[] = [];
+	startThread.mockImplementation((() => ({
+		async runStreamed(prompt: unknown) {
+			sent.push(prompt);
+			return {
+				events: (async function* () {
+					yield {
+						type: "item.completed",
+						item: {
+							type: "agent_message",
+							text: JSON.stringify({
+								findings: [],
+								scopeChecks: [],
+								conditionChecks: [],
+							}),
+						},
+					};
+					yield {
+						type: "turn.completed",
+						usage: { input_tokens: 10, output_tokens: 5 },
+					};
+				})(),
+			};
+		},
+	})) as typeof Codex.prototype.startThread);
+	try {
+		for (const bare of [false, true]) {
+			const { model } = codexSdkLunaModel({ bare });
+			const result = await evaluate(
+				{ ...item!.input, skillMarkdown },
+				{ model },
+			);
+			expect(result.model).toBe("gpt-6-luna");
+		}
+		expect(sent).toHaveLength(2);
+		const [normal, bare] = sent as string[];
+		expect(JSON.parse(normal!).skillMarkdown).toBe(skillMarkdown);
+		expect(bare).toBe(`${bareReviewRequest}\n\n${normal}`);
+	} finally {
+		startThread.mockRestore();
+		if (originalKey === undefined) delete Bun.env.OPEN_AI_API_KEY;
+		else Bun.env.OPEN_AI_API_KEY = originalKey;
+	}
+});
 
 test("配布スイートの全入力・採点根拠を検証し、同一差分で訂正前後を比較できる", async () => {
 	const cases = await suite();

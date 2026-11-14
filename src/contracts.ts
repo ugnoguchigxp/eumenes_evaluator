@@ -163,6 +163,7 @@ export const requestSchema = z.strictObject({
 	scope: z.array(id).min(1).max(MAX_SCOPE_CHECKS),
 	evidence: z.array(evidenceSchema).max(1024),
 	originalRequest: z.string().min(1).max(24_000).optional(),
+	skillMarkdown: z.string().optional(),
 	conditions: z.discriminatedUnion("state", [
 		z.strictObject({ state: z.literal("none") }),
 		z.strictObject({

@@ -208,23 +208,29 @@ test("現行と期待が同じ行の指摘を抑え、複数の根拠に基づ�
 		"/decisions/4",
 	]);
 	expect(legacy.findings[2]?.problem).toContain("P-05>P-06");
-	const revised = await evaluate(request, {
-		selection: comparison,
-		model: model({ rows, conditions }, ({ system, prompt, outputSchema }) => {
-			const packet = JSON.parse(prompt);
-			expect(packet.currentValuePointer).toBe("/current");
-			expect(packet.comparisonPointers).toEqual(
-				rows.map(({ pointer }) => pointer),
-			);
-			expect(
-				packet.evidence.find(({ id }: { id: string }) => id === "workflow")
-					.document,
-			).toEqual(document);
-			expect(packet.scope).toEqual(packet.primaryEvidenceIds);
-			expect(system).toContain("関連資料を横断して期待値を求めて");
-			expect(outputSchema.required).toEqual(["rows", "conditions"]);
-		}),
-	});
+	const skillMarkdown = "# 行照合\n\n基準時刻と承認状況を突き合わせる。";
+	const revised = await evaluate(
+		{ ...request, skillMarkdown },
+		{
+			selection: comparison,
+			model: model({ rows, conditions }, ({ system, prompt, outputSchema }) => {
+				const packet = JSON.parse(prompt);
+				expect(packet.currentValuePointer).toBe("/current");
+				expect(packet.comparisonPointers).toEqual(
+					rows.map(({ pointer }) => pointer),
+				);
+				expect(
+					packet.evidence.find(({ id }: { id: string }) => id === "workflow")
+						.document,
+				).toEqual(document);
+				expect(packet.scope).toEqual(packet.primaryEvidenceIds);
+				expect(packet.skillMarkdown).toBe(skillMarkdown);
+				expect(system).toContain("関連資料を横断して期待値を求めて");
+				expect(system).not.toContain(skillMarkdown);
+				expect(outputSchema.required).toEqual(["rows", "conditions"]);
+			}),
+		},
+	);
 	expect(revised.status).toBe("completed");
 	expect(revised.findings.map(({ primary }) => primary.pointer)).toEqual([
 		"/decisions/1/current",

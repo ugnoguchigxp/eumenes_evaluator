@@ -2,11 +2,28 @@ import type {
 	EvaluationModel,
 	EvaluationRequest,
 	ModelRequest,
+	ReviewEvidence,
 } from "./contracts";
 import type { ReviewStage } from "./investigation";
-import { fingerprint } from "./snapshot";
+import { excerptEndLine, fingerprint } from "./snapshot";
 
 export const inputBudgetExceeded = Symbol("prompt_size_limit");
+
+export type ModelInput = { evidence: ReviewEvidence[] } & Record<
+	string,
+	unknown
+>;
+
+export function serializeModelInput(input: ModelInput): string {
+	return JSON.stringify({
+		...input,
+		evidence: input.evidence.map((item) => {
+			if (item.kind !== "lines") return item;
+			const { text, ...coordinates } = item;
+			return { ...coordinates, endLine: excerptEndLine(item), text };
+		}),
+	});
+}
 
 export function fitsModelInput(
 	instructions: string,
@@ -46,12 +63,12 @@ export function startModelStages(
 	async function complete(
 		phase: ReviewStage["phase"],
 		instructions: string,
-		input: object,
+		input: ModelInput,
 		schema: ModelRequest["outputSchema"],
 		delivery?: ModelDelivery,
 	) {
 		checkDeadline();
-		const prompt = JSON.stringify(input);
+		const prompt = serializeModelInput(input);
 		if (!fitsModelInput(instructions, prompt, limits.maxInputBytes))
 			throw inputBudgetExceeded;
 		const invocation = {

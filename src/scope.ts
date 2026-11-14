@@ -14,6 +14,7 @@ import {
 } from "./contracts";
 import {
 	activeConditions,
+	excerptEndLine,
 	excerptLines,
 	fingerprint,
 	pointerTokens,
@@ -96,7 +97,7 @@ export function evidenceCoordinates(item: ReviewEvidence) {
 				path: item.path,
 				side: item.side,
 				startLine: item.startLine,
-				endLine: item.startLine + excerptLines(item.text).length - 1,
+				endLine: excerptEndLine(item),
 			}
 		: {
 				id,
@@ -370,6 +371,7 @@ export function resolveScope(request: EvaluationRequest, input: unknown) {
 				conditionDigest,
 				rubric: request.rubric,
 				originalRequest: request.originalRequest,
+				skillMarkdown: request.skillMarkdown,
 			}),
 			conditionDigest,
 			conditionRevision:

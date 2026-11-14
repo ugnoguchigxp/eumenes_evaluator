@@ -1,5 +1,10 @@
 import type { EvaluationResult, Evidence, ReviewEvidence } from "./contracts";
-import { fitsModelInput, type ModelDelivery } from "./model-stages";
+import {
+	fitsModelInput,
+	serializeModelInput,
+	type ModelDelivery,
+	type ModelInput,
+} from "./model-stages";
 
 type SteeringOutcome = NonNullable<EvaluationResult["steering"]>["outcome"];
 
@@ -33,7 +38,7 @@ export function prepareSteeredVerification(
 	catalog: ReadonlyMap<string, Evidence>,
 	evidence: Map<string, ReviewEvidence>,
 	instructions: string,
-	packet: { evidence: ReviewEvidence[] },
+	packet: ModelInput,
 	maxInputBytes: number,
 ) {
 	if (target.seal() !== "sealed") return;
@@ -59,7 +64,7 @@ export function prepareSteeredVerification(
 		evidenceIds.length > 0 &&
 		!fitsModelInput(
 			steeredInstructions,
-			JSON.stringify(steeredPacket),
+			serializeModelInput(steeredPacket),
 			maxInputBytes,
 		);
 	const include = evidenceIds.length > 0 && !overBudget;

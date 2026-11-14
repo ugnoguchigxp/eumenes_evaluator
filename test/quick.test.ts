@@ -11,8 +11,10 @@ import {
 	type ModelOutput,
 	type ModelRequest,
 } from "../src";
+import { MAX_INPUT_BYTES } from "../src/contracts";
 import { httpModel } from "../src/http-model";
 import { readText } from "../src/read-text";
+import { rubricInstructions } from "../src/rubrics";
 
 const base = "a".repeat(40);
 const head = "b".repeat(40);
@@ -193,6 +195,8 @@ describe("固定したコード差分", () => {
 		const result = await evaluate(request, {
 			model: fixed(checked(...request.scope), (input) => {
 				calls++;
+				expect(input.system).toBe(rubricInstructions(request.rubric));
+				expect(JSON.parse(input.prompt)).not.toHaveProperty("skillMarkdown");
 				expect(input.maxOutputTokens).toBe(request.limits.maxOutputTokens);
 				expect(input.outputSchema).toHaveProperty("properties.findings");
 			}),
@@ -202,6 +206,53 @@ describe("固定したコード差分", () => {
 		expect(result.findings).toEqual([]);
 		expect(result.target?.digest).toBe(request.target.digest);
 		expect(result.usage?.inputTokens).toBe(123);
+	});
+
+	test("SKILL の Markdown は固定指示と評価資料から分けて渡す", async () => {
+		const request = codeRequest();
+		const skillMarkdown =
+			"# 操作性レビュー\n\n- 利用者の操作順と認知負荷を確認する。\n- [補足資料](./checks.md)\n";
+		const output = checked(...request.scope);
+		let original!: ModelRequest;
+		const baseline = await evaluate(request, {
+			model: fixed(output, (input) => (original = input)),
+		});
+		const result = await evaluate(
+			{ ...request, skillMarkdown },
+			{
+				model: fixed(output, ({ system, prompt, outputSchema }) => {
+					expect(system).toBe(original.system);
+					expect(system).not.toContain(skillMarkdown);
+					expect(JSON.parse(prompt)).toEqual({
+						...JSON.parse(original.prompt),
+						skillMarkdown,
+					});
+					expect(outputSchema).toEqual(original.outputSchema);
+				}),
+			},
+		);
+		expect(baseline.status).toBe("completed");
+		expect(result.status).toBe("completed");
+		expect(result.inputDigest).not.toBe(baseline.inputDigest);
+	});
+
+	test("SKILL の本文をリクエストとモデル入力のバイト上限に含める", async () => {
+		const request = codeRequest();
+		const guard = noCall();
+		const promptOverflow = await evaluate(
+			{ ...request, skillMarkdown: "観点".repeat(4_000) },
+			guard,
+		);
+		expect(promptOverflow.status).toBe("incomplete");
+		expect(promptOverflow.issues).toEqual([{ code: "prompt_size_limit" }]);
+
+		const requestOverflow = await evaluate(
+			{ ...request, skillMarkdown: "観点".repeat(MAX_INPUT_BYTES / 4) },
+			guard,
+		);
+		expect(requestOverflow.status).toBe("incomplete");
+		expect(requestOverflow.issues).toEqual([{ code: "request_size_limit" }]);
+		guard.assert();
 	});
 
 	test("版の違いと固定後の本文変更を推論前に拒否する", async () => {
@@ -584,6 +635,7 @@ test("CLI は標準入力の評価依頼と固定応答から結果 JSON を返�
 
 test("HTTP アダプターは一回の構造化推論で利用量を取得する", async () => {
 	const request = codeRequest();
+	const skillMarkdown = "# 操作性\n\n操作の結果が分かるか確認する。";
 	let calls = 0;
 	let payload: Record<string, unknown> | undefined;
 	const server = Bun.serve({
@@ -607,12 +659,15 @@ test("HTTP アダプターは一回の構造化推論で利用量を取得する
 		},
 	});
 	try {
-		const result = await evaluate(request, {
-			model: httpModel(
-				new URL("v1/chat/completions", server.url).href,
-				"fixture",
-			),
-		});
+		const result = await evaluate(
+			{ ...request, skillMarkdown },
+			{
+				model: httpModel(
+					new URL("v1/chat/completions", server.url).href,
+					"fixture",
+				),
+			},
+		);
 		expect(calls).toBe(1);
 		expect(payload).toMatchObject({
 			model: "fixture",
@@ -621,6 +676,10 @@ test("HTTP アダプターは一回の構造化推論で利用量を取得する
 			response_format: { type: "json_schema", json_schema: { strict: true } },
 		});
 		expect(payload).not.toHaveProperty("tools");
+		const messages = payload?.messages as { role: string; content: string }[];
+		expect(messages.map(({ role }) => role)).toEqual(["system", "user"]);
+		expect(messages[0]?.content).toBe(rubricInstructions(request.rubric));
+		expect(JSON.parse(messages[1]!.content).skillMarkdown).toBe(skillMarkdown);
 		expect(result).toMatchObject({
 			status: "completed",
 			model: "local-model",
@@ -670,8 +729,24 @@ test("適用版違いの確定条件を報告し、訂正・撤回は記録だ�
 	expect(corrected.conditionSelection.excluded).toHaveLength(2);
 });
 
-test("不正な根拠の指摘だけ除外して正しい指摘を残す", async () => {
+test("資料の最終行を明示し、範囲超過や存在しない資料 ID の引用を拒否する", async () => {
 	const request = codeRequest();
+	request.evidence.push({
+		kind: "lines",
+		id: "context-base",
+		version: base,
+		path: "queue.ts",
+		side: "base",
+		startLine: 6,
+		text: "// 設定\nconst batch = 10;",
+		clipped: false,
+	});
+	const context = {
+		...location,
+		evidenceId: "context-base",
+		startLine: 6,
+		endLine: 7,
+	};
 	const good = {
 		title: "指摘",
 		problem: "バッチ上限を超える",
@@ -679,23 +754,92 @@ test("不正な根拠の指摘だけ除外して正しい指摘を残す", async
 		impact: "処理失敗",
 		severity: "medium" as const,
 		primary: location,
-		evidence: [],
+		evidence: [context],
 		conditionId: null,
 	};
 	const result = await evaluate(request, {
-		model: fixed({
-			...checked(...request.scope),
-			findings: [
-				good,
-				{ ...good, evidence: [{ ...location, startLine: 9, endLine: 9 }] },
-			],
-		}),
+		model: fixed(
+			{
+				...checked(...request.scope),
+				findings: [
+					good,
+					{ ...good, primary: { ...location, endLine: 9 } },
+					{ ...good, evidence: [{ ...context, evidenceId: "context-head" }] },
+				],
+			},
+			({ prompt }) => {
+				expect(JSON.parse(prompt).evidence).toMatchObject([
+					{ id: "change:base", startLine: 7, endLine: 7 },
+					{ id: "change:head", startLine: 8, endLine: 8 },
+					{ id: "context-base", startLine: 6, endLine: 7 },
+				]);
+			},
+		),
 	});
 	expect(result.status).toBe("incomplete");
 	expect(result.findings).toEqual([good]);
 	expect(result.rejected).toEqual([
 		{ kind: "findings", index: 1, reason: "finding_location_unavailable" },
+		{ kind: "findings", index: 2, reason: "finding_location_unavailable" },
 	]);
+});
+
+test("空の行抜粋は引用できず、確認必須の場合は未確認になる", async () => {
+	const request = codeRequest();
+	request.scope.push("empty");
+	request.evidence.push({
+		kind: "lines",
+		id: "empty",
+		version: head,
+		path: "queue.ts",
+		side: "head",
+		startLine: 100,
+		text: "",
+		clipped: false,
+	});
+	const result = await evaluate(request, {
+		model: fixed(
+			{
+				...checked(...request.scope),
+				findings: [
+					{
+						title: "指摘",
+						problem: "処理が実行されない",
+						trigger: "起動時",
+						impact: "処理失敗",
+						severity: "medium",
+						primary: location,
+						evidence: [
+							{
+								...location,
+								evidenceId: "empty",
+								startLine: 100,
+								endLine: 100,
+							},
+						],
+						conditionId: null,
+					},
+				],
+			},
+			({ prompt }) => {
+				expect(
+					JSON.parse(prompt).evidence.find(
+						({ id }: { id: string }) => id === "empty",
+					),
+				).toMatchObject({ startLine: 100, endLine: null });
+			},
+		),
+	});
+	expect(result.status).toBe("incomplete");
+	expect(result.findings).toEqual([]);
+	expect(result.rejected).toEqual([
+		{ kind: "findings", index: 0, reason: "finding_location_unavailable" },
+	]);
+	expect(result.scopeChecks).toContainEqual({
+		evidenceId: "empty",
+		status: "unverified",
+		reason: "資料がありません",
+	});
 });
 
 test("確認結果の重複・未知IDと条件違反の矛盾を項目単位で扱う", async () => {

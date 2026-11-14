@@ -146,9 +146,20 @@ export function readPointer(
 }
 
 export function excerptLines(text: string): string[] {
+	if (text === "") return [];
 	const lines = text.split("\n");
 	if (text.endsWith("\n")) lines.pop();
 	return lines;
+}
+
+export function excerptEndLine({
+	startLine,
+	text,
+}: {
+	startLine: number;
+	text: string;
+}): number | null {
+	return text === "" ? null : startLine + excerptLines(text).length - 1;
 }
 
 export function locationExists(
